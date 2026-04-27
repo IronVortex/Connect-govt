@@ -1,0 +1,26 @@
+{
+  "name": "connect",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "axios": "^1.15.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.11.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@nx/next": "^22.7.0",
+    "@nx/workspace": "^22.7.0",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.16",
+    "nx": "^22.7.0",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.9.3"
+  }
+}
