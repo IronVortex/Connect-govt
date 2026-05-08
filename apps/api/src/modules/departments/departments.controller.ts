@@ -1,9 +1,18 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+} from '@nestjs/common';
+
 import { DepartmentsService } from './departments.service';
 
 @Controller('departments')
 export class DepartmentsController {
-  constructor(private departmentsService: DepartmentsService) {}
+  constructor(
+    private readonly departmentsService: DepartmentsService,
+  ) {}
 
   @Get()
   findAll() {
@@ -16,7 +25,13 @@ export class DepartmentsController {
   }
 
   @Post()
-  create(@Body() body: { name: string; description: string }) {
+  create(
+    @Body()
+    body: {
+      name: string;
+      description?: string;
+    },
+  ) {
     return this.departmentsService.create(body);
   }
 }

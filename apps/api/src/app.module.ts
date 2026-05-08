@@ -25,6 +25,6 @@ import { SeedService } from './modules/seed.service';
     ApplicationModule,
   ],
   controllers: [],
-  providers: [SeedService],
+  providers: [],
 })
 export class AppModule {}

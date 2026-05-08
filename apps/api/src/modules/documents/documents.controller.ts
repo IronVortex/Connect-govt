@@ -20,8 +20,19 @@ export class DocumentsController {
     return this.documentsService.findOne(id);
   }
 
-  @Post()
-  create(@Body() body: { name: string; description: string; service: string }) {
-    return this.documentsService.create(body);
-  }
+ @Post()
+create(
+  @Body()
+  body: {
+    name: string;
+    description?: string;
+    service: string;
+  },
+) {
+  return this.documentsService.create({
+    name: body.name,
+    description: body.description,
+    service: body.service as any,
+  });
+}
 }

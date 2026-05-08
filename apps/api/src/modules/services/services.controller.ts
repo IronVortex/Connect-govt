@@ -11,8 +11,12 @@ export class ServicesController {
   }
 
   @Get('department/:departmentId')
-  findByDepartment(@Param('departmentId') departmentId: string) {
-    return this.servicesService.findByDepartment(departmentId);
+  findByDepartment(
+    @Param('departmentId') departmentId: string,
+  ) {
+    return this.servicesService.findByDepartment(
+      departmentId,
+    );
   }
 
   @Get(':id')
@@ -21,7 +25,14 @@ export class ServicesController {
   }
 
   @Post()
-  create(@Body() body: { name: string; description: string; department: string }) {
+  create(
+    @Body()
+    body: {
+      name: string;
+      description?: string;
+      department: string;
+    },
+  ) {
     return this.servicesService.create(body);
   }
 }

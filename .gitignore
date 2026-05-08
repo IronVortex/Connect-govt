@@ -46,3 +46,6 @@ next-env.d.ts
 # Next.js
 .next
 out
+
+.claude/worktrees
+.claude/settings.local.json

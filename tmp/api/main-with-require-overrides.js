@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const originalResolveFilename = Module._resolveFilename;
 const distPath = __dirname;
-const manifest = [];
+const manifest = [{"module":"@connect/types","exactMatch":"libs/types/index.js","pattern":"libs/types/index.ts"}];
 
 Module._resolveFilename = function(request, parent) {
   let found;
