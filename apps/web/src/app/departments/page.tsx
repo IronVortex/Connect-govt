@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { Topbar } from '../../components/Topbar';
 import { 
@@ -14,43 +14,55 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../lib/utils';
+import apiClient from '../../services/apiClient';
+import { Department, Service } from '@connect/types';
 
-const departments = [
-  { 
-    id: 'rto',
-    name: 'Transport Department (RTO)', 
-    icon: Car, 
-    services: 12, 
-    color: 'bg-blue-500',
-    description: 'Vehicle registration, driving licenses, and transport permits.'
-  },
-  { 
-    id: 'passport',
-    name: 'Passport Seva', 
-    icon: FileText, 
-    services: 5, 
-    color: 'bg-indigo-500',
-    description: 'New passport applications, renewals, and PCC services.'
-  },
-  { 
-    id: 'municipality',
-    name: 'Municipality', 
-    icon: Landmark, 
-    services: 24, 
-    color: 'bg-emerald-500',
-    description: 'Birth/Death certificates, property tax, and trade licenses.'
-  },
-  { 
-    id: 'revenue',
-    name: 'Revenue Department', 
-    icon: Users, 
-    services: 18, 
-    color: 'bg-amber-500',
-    description: 'Income certificates, caste certificates, and land records.'
-  },
+const visuals = [
+  { icon: Car, color: 'bg-blue-500' },
+  { icon: FileText, color: 'bg-indigo-500' },
+  { icon: Landmark, color: 'bg-emerald-500' },
+  { icon: Users, color: 'bg-amber-500' },
 ];
 
 export default function DepartmentsPage() {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [serviceCountByDepartment, setServiceCountByDepartment] = useState<
+    Record<string, number>
+  >({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const departmentsRes = await apiClient.get<Department[]>('/departments');
+        const loadedDepartments = departmentsRes.data || [];
+        setDepartments(loadedDepartments);
+
+        const servicesResponses = await Promise.all(
+          loadedDepartments.map((department) =>
+            apiClient.get<Service[]>(`/departments/${department._id}/services`),
+          ),
+        );
+
+        const counts = loadedDepartments.reduce<Record<string, number>>(
+          (acc, department, index) => {
+            acc[department._id] = servicesResponses[index].data?.length ?? 0;
+            return acc;
+          },
+          {},
+        );
+        setServiceCountByDepartment(counts);
+      } catch (err: any) {
+        setError(err?.response?.data?.message || 'Unable to load departments.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDepartments();
+  }, []);
+
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
       <Sidebar />
@@ -75,35 +87,54 @@ export default function DepartmentsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {departments.map((dept) => (
-              <Link 
-                key={dept.id} 
-                href={`/departments/${dept.id}`}
-                className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex gap-6"
-              >
-                <div className={cn(
-                  "w-20 h-20 rounded-[20px] flex items-center justify-center text-white flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform",
-                  dept.color
-                )}>
-                  <dept.icon className="w-10 h-10" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[20px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight">{dept.name}</h3>
-                    <span className="bg-slate-50 text-slate-500 text-[12px] font-bold px-3 py-1 rounded-full border border-slate-100">
-                      {dept.services} Services
-                    </span>
-                  </div>
-                  <p className="text-[14px] text-slate-400 font-medium mb-6 line-clamp-2">
-                    {dept.description}
-                  </p>
-                  <div className="flex items-center text-[14px] font-bold text-[#1D61FF]">
-                    Browse Services
-                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </Link>
-            ))}
+            {isLoading ? (
+              <div className="col-span-full rounded-[24px] border border-slate-100 bg-white p-8 text-center text-slate-500">
+                Loading departments...
+              </div>
+            ) : error ? (
+              <div className="col-span-full rounded-[24px] border border-red-200 bg-red-50 p-8 text-center text-red-700">
+                {error}
+              </div>
+            ) : (
+              departments.map((dept, index) => {
+                const visual = visuals[index % visuals.length];
+                const Icon = visual.icon;
+
+                return (
+                  <Link
+                    key={dept._id}
+                    href={`/departments/${dept._id}`}
+                    className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex gap-6"
+                  >
+                    <div
+                      className={cn(
+                        'w-20 h-20 rounded-[20px] flex items-center justify-center text-white flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform',
+                        visual.color,
+                      )}
+                    >
+                      <Icon className="w-10 h-10" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-[20px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight">
+                          {dept.name}
+                        </h3>
+                        <span className="bg-slate-50 text-slate-500 text-[12px] font-bold px-3 py-1 rounded-full border border-slate-100">
+                          {serviceCountByDepartment[dept._id] ?? 0} Services
+                        </span>
+                      </div>
+                      <p className="text-[14px] text-slate-400 font-medium mb-6 line-clamp-2">
+                        {dept.description || 'Browse services offered by this department.'}
+                      </p>
+                      <div className="flex items-center text-[14px] font-bold text-[#1D61FF]">
+                        Browse Services
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </main>
       </div>

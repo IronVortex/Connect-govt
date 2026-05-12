@@ -3,6 +3,7 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  Body,
   Param,
   UseGuards,
   Request,
@@ -17,6 +18,34 @@ import { Types } from 'mongoose';
 @Controller('upload')
 export class UploadsController {
   constructor(private uploadsService: UploadsService) {}
+
+  @Post()
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAndDetect(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('expectedDocumentType') expectedDocumentType?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required.');
+    }
+
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PDF, PNG, and JPEG files are allowed.',
+      );
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('File size exceeds the 5MB limit.');
+    }
+
+    return this.uploadsService.analyzeUpload(
+      file.originalname,
+      expectedDocumentType,
+    );
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':documentId')
@@ -38,11 +67,11 @@ export class UploadsController {
       );
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException('File size exceeds the 10MB limit.');
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
-    const detectedType = await this.uploadsService.detectDocumentType(
+    const detectedType = this.uploadsService.detectDocumentType(
       file.originalname,
     );
 

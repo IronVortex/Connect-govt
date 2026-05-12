@@ -1,9 +1,13 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ServicesService } from './services.service';
+import { DocumentsService } from '../documents/documents.service';
 
 @Controller('services')
 export class ServicesController {
-  constructor(private servicesService: ServicesService) {}
+  constructor(
+    private servicesService: ServicesService,
+    private documentsService: DocumentsService,
+  ) {}
 
   @Get()
   findAll() {
@@ -22,6 +26,11 @@ export class ServicesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.servicesService.findOne(id);
+  }
+
+  @Get(':id/documents')
+  findDocumentsByService(@Param('id') id: string) {
+    return this.documentsService.findByService(id);
   }
 
   @Post()

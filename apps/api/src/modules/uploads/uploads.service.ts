@@ -34,30 +34,54 @@ export class UploadsService {
       .exec();
   }
 
-  async detectDocumentType(
+  private getTypeFromText(text: string): string | null {
+    const lower = text.toLowerCase();
+
+    if (lower.includes('aadhaar') || lower.includes('aadhar')) {
+      return 'Aadhaar';
+    }
+    if (lower.includes('pan')) {
+      return 'PAN';
+    }
+    if (lower.includes('insurance')) {
+      return 'Insurance';
+    }
+    if (lower.includes('invoice')) {
+      return 'Invoice';
+    }
+
+    return null;
+  }
+
+  detectDocumentType(
     filename: string,
     content?: string,
-  ): Promise<string> {
-    const lower = filename.toLowerCase();
+  ): string {
+    return (
+      this.getTypeFromText(filename) ??
+      this.getTypeFromText(content || '') ??
+      'Unknown'
+    );
+  }
 
-    if (lower.includes('passport')) return 'Passport';
+  analyzeUpload(
+    filename: string,
+    expectedDocumentType?: string,
+    content?: string,
+  ): { documentType: string; status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN' } {
+    const detectedType = this.detectDocumentType(filename, content);
 
-    if (lower.includes('id') || lower.includes('identity')) {
-      return 'ID Card';
+    if (detectedType === 'Unknown') {
+      return { documentType: 'Unknown', status: 'UNKNOWN' };
     }
 
-    if (lower.includes('birth')) return 'Birth Certificate';
-
-    if (lower.includes('marriage')) {
-      return 'Marriage Certificate';
+    if (
+      expectedDocumentType &&
+      detectedType.toLowerCase() !== expectedDocumentType.toLowerCase()
+    ) {
+      return { documentType: detectedType, status: 'MISMATCH' };
     }
 
-    if (lower.includes('address')) return 'Address Proof';
-
-    if (lower.includes('license')) {
-      return 'Driving License';
-    }
-
-    return 'Unknown';
+    return { documentType: detectedType, status: 'DETECTED' };
   }
 }

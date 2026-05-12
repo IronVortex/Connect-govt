@@ -10,7 +10,15 @@ export class DocumentsService {
   ) {}
 
   async findAll(): Promise<RequiredDocument[]> {
-    return this.documentModel.find().populate('service').exec();
+    try {
+      const documents = await this.documentModel
+        .find()
+        .populate('service')
+        .exec();
+      return documents || [];
+    } catch {
+      return [];
+    }
   }
 
   async findByService(serviceId: string): Promise<RequiredDocument[]> {

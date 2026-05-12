@@ -6,18 +6,32 @@ import { Sidebar } from '../../components/Sidebar';
 import { Topbar } from '../../components/Topbar';
 import apiClient from '../../services/apiClient';
 import { ArrowRight, LayoutList, Search } from 'lucide-react';
-import { Service } from '@connect/types';
+import { RequiredDocument, Service } from '@connect/types';
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [documentCountByService, setDocumentCountByService] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const loadServices = async () => {
       try {
-        const response = await apiClient.get('/services');
-        setServices(response.data);
+        const response = await apiClient.get<Service[]>('/services');
+        const loadedServices = response.data || [];
+        setServices(loadedServices);
+
+        const documentsResponses = await Promise.all(
+          loadedServices.map((service) =>
+            apiClient.get<RequiredDocument[]>(`/services/${service._id}/documents`),
+          ),
+        );
+
+        const counts = loadedServices.reduce<Record<string, number>>((acc, service, index) => {
+          acc[service._id] = documentsResponses[index].data?.length ?? 0;
+          return acc;
+        }, {});
+        setDocumentCountByService(counts);
       } catch (err: any) {
         setError(err?.response?.data?.message || 'Unable to load services.');
       } finally {
@@ -76,6 +90,9 @@ export default function ServicesPage() {
                   </div>
                   <h2 className="text-[20px] font-extrabold text-[#0F172A] mb-3">{service.name}</h2>
                   <p className="text-sm text-slate-500 leading-relaxed">{service.description || 'Follow a guided flow and upload the documents required for this service.'}</p>
+                  <p className="mt-4 text-sm font-semibold text-[#1D61FF]">
+                    {documentCountByService[service._id] ?? 0} required documents
+                  </p>
                 </Link>
               ))
             )}

@@ -24,7 +24,7 @@ export default function DepartmentDetailPage() {
       try {
         const [deptRes, servicesRes] = await Promise.all([
           apiClient.get(`/departments/${departmentId}`),
-          apiClient.get(`/services/department/${departmentId}`),
+          apiClient.get(`/departments/${departmentId}/services`),
         ]);
         setDepartment(deptRes.data);
         setServices(servicesRes.data);

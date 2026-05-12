@@ -8,14 +8,23 @@ import { ServicesModule } from './modules/services/services.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ApplicationModule } from './modules/application/application.module';
-import { SeedService } from './modules/seed.service';
+import { SeedService } from './seed/seed.service';
+import { Department, DepartmentSchema } from './models/Department';
+import { Service, ServiceSchema } from './models/Service';
+import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocument';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['apps/api/.env', '.env'],
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/connect-gov'),
+    MongooseModule.forRoot(process.env.MONGODB_URI as string),
+    MongooseModule.forFeature([
+      { name: Department.name, schema: DepartmentSchema },
+      { name: Service.name, schema: ServiceSchema },
+      { name: RequiredDocument.name, schema: RequiredDocumentSchema },
+    ]),
     AuthModule,
     UsersModule,
     DepartmentsModule,
@@ -25,6 +34,6 @@ import { SeedService } from './modules/seed.service';
     ApplicationModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [SeedService],
 })
 export class AppModule {}

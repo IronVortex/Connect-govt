@@ -11,7 +11,15 @@ export class ServicesService {
   ) {}
 
   async findAll(): Promise<ServiceDocument[]> {
-    return this.serviceModel.find().populate('department').exec();
+    try {
+      const services = await this.serviceModel
+        .find()
+        .populate('department')
+        .exec();
+      return services || [];
+    } catch {
+      return [];
+    }
   }
 
   async findByDepartment(
