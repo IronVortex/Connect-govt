@@ -3,9 +3,7 @@ import { DepartmentsService } from './departments.service';
 
 @Controller('departments')
 export class DepartmentsController {
-  constructor(private readonly departmentsService: DepartmentsService) {
-    console.log('✅ DepartmentsService injected:', !!departmentsService);
-  }
+  constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Get()
   async findAll() {
@@ -25,10 +23,5 @@ export class DepartmentsController {
   @Get(':id/services')
   async findServicesByDepartment(@Param('id') id: string) {
     return this.departmentsService.findServicesByDepartment(id);
-  }
-
-  @Get('/')
-  healthCheck() {
-    return { message: 'API is running 🚀' };
   }
 }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -9,9 +10,11 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ApplicationModule } from './modules/application/application.module';
 import { SeedService } from './seed/seed.service';
+import { AppController } from './app.controller';
 import { Department, DepartmentSchema } from './models/Department';
 import { Service, ServiceSchema } from './models/Service';
 import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocument';
+import { HttpExceptionFilter } from './filters/http-exception.filter';
 
 @Module({
   imports: [
@@ -19,7 +22,20 @@ import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocum
       isGlobal: true,
       envFilePath: ['apps/api/.env', '.env'],
     }),
-    MongooseModule.forRoot(process.env.MONGODB_URI as string),
+    MongooseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          'mongodb://localhost:27017/connect-govt',
+        dbName: configService.get<string>('MONGODB_DB') || 'connect-govt',
+        serverSelectionTimeoutMS: 5000,
+        retryAttempts: 1,
+        retryDelay: 1000,
+        lazyConnection: true,
+        bufferCommands: false,
+      }),
+    }),
     MongooseModule.forFeature([
       { name: Department.name, schema: DepartmentSchema },
       { name: Service.name, schema: ServiceSchema },
@@ -33,7 +49,13 @@ import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocum
     UploadsModule,
     ApplicationModule,
   ],
-  controllers: [],
-  providers: [SeedService],
+  controllers: [AppController],
+  providers: [
+    SeedService,
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+  ],
 })
 export class AppModule {}

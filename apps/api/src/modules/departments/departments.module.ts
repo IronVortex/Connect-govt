@@ -1,10 +1,3 @@
-// Copilot: Register both Department and Service schemas in one MongooseModule.forFeature call.
-// Ensure DepartmentsService is listed in providers and DepartmentsController in controllers.
-// Ensure the exported DepartmentsService is used in other modules.
-// Copilot: Register both Department and Service schemas in one MongooseModule.forFeature call.
-// Ensure DepartmentsService is listed in providers and DepartmentsController in controllers.
-// Ensure the exported DepartmentsService is used in other modules.
-
 
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';

@@ -1,20 +1,19 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
   const port = Number(configService.get<string>('PORT') || 3001);
-  const mongoUri = configService.get<string>('MONGODB_URI');
   const frontendUrl = configService.get<string>('FRONTEND_URL');
-
-  if (!mongoUri) {
-    throw new Error('MONGODB_URI is required to start the API.');
-  }
+  const allowedOrigins = frontendUrl
+    ? frontendUrl.split(',').map((origin) => origin.trim())
+    : ['http://localhost:3000', 'http://localhost:4200'];
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -24,16 +23,19 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: frontendUrl || false,
+    origin: allowedOrigins,
     credentials: true,
   });
 
   const mongoConnection = app.get<Connection>(getConnectionToken());
   if (mongoConnection.readyState === 1) {
-    console.log('✅ Connected to MongoDB');
+    logger.log('Connected to MongoDB');
+  } else {
+    logger.warn(`MongoDB connection state: ${mongoConnection.readyState}`);
   }
 
   await app.listen(port);
-  console.log(`🚀 API running on http://localhost:${port}`);
+  logger.log(`API running on http://localhost:${port}`);
 }
+
 bootstrap();

@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { Department, DepartmentDocument } from '../models/Department';
 import { Service, ServiceDocument } from '../models/Service';
 import {
@@ -13,6 +13,8 @@ export class SeedService implements OnModuleInit {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
+    @InjectConnection()
+    private readonly connection: Connection,
     @InjectModel(Department.name)
     private readonly departmentModel: Model<DepartmentDocument>,
     @InjectModel(Service.name)
@@ -22,11 +24,36 @@ export class SeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    const connected = await this.waitForConnection();
+    if (!connected) {
+      this.logger.warn('Seed skipped because MongoDB is not connected');
+      return;
+    }
+
     await this.seedIfEmpty();
   }
 
+  private async waitForConnection(): Promise<boolean> {
+    if (this.connection.readyState === 1) {
+      return true;
+    }
+
+    try {
+      await Promise.race([
+        this.connection.asPromise(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('MongoDB connection timeout')), 5000),
+        ),
+      ]);
+      return Number(this.connection.readyState) === 1;
+    } catch (error: any) {
+      this.logger.warn(error?.message || 'MongoDB connection unavailable');
+      return false;
+    }
+  }
+
   private async seedIfEmpty(): Promise<void> {
-    this.logger.log('🌱 Seeding database...');
+    this.logger.log('🌱 Seeding database');
 
     try {
       const hasDepartments = await this.departmentModel.exists({});
@@ -35,117 +62,56 @@ export class SeedService implements OnModuleInit {
         return;
       }
 
-      const [rtoDepartment, passportDepartment, drivingAuthorityDepartment, taxDepartment] =
+      const [healthDepartment, educationDepartment, transportDepartment] =
         await this.departmentModel.insertMany([
           {
-            name: 'Transport Department (RTO)',
-            description:
-              'Vehicle registration and transport-related citizen services.',
+            name: 'Health',
+            description: 'Health-related services for citizens.',
           },
           {
-            name: 'Passport Department',
-            description:
-              'Passport issuance, renewal, and verification services.',
+            name: 'Education',
+            description: 'Education and school-related public services.',
           },
           {
-            name: 'Driving License Authority',
-            description:
-              'Driving license issuance, renewal, and compliance services.',
-          },
-          {
-            name: 'Tax Department',
-            description:
-              'Tax identity, filings, and PAN-related public services.',
+            name: 'Transport',
+            description: 'Transport and licensing services.',
           },
         ]);
 
-      const [
-        newCarRegistration,
-        drivingLicenseRenewal,
-        passportApplication,
-        panCardIssuance,
-      ] = await this.serviceModel.insertMany([
+      await this.serviceModel.insertMany([
         {
-          name: 'New Car Registration',
-          description: 'Register a newly purchased car.',
-          department: new Types.ObjectId(rtoDepartment._id),
+          name: 'Hospital Registration',
+          description: 'Register for hospital services and appointments.',
+          department: new Types.ObjectId(healthDepartment._id),
         },
         {
-          name: 'Driving License Renewal',
-          description: 'Renew your existing driving license.',
-          department: new Types.ObjectId(drivingAuthorityDepartment._id),
+          name: 'Vaccination',
+          description: 'Book vaccination services.',
+          department: new Types.ObjectId(healthDepartment._id),
         },
         {
-          name: 'Passport Application',
-          description: 'Apply for a new passport.',
-          department: new Types.ObjectId(passportDepartment._id),
+          name: 'School Admission',
+          description: 'Apply for school admission and enrollment.',
+          department: new Types.ObjectId(educationDepartment._id),
         },
         {
-          name: 'PAN Card Issuance',
-          description: 'Request a new PAN card.',
-          department: new Types.ObjectId(taxDepartment._id),
-        },
-      ]);
-
-      await this.requiredDocumentModel.insertMany([
-        {
-          name: 'Aadhaar',
-          description: 'Government-issued Aadhaar copy.',
-          service: new Types.ObjectId(newCarRegistration._id),
+          name: 'Scholarship Application',
+          description: 'Submit an application for scholarships.',
+          department: new Types.ObjectId(educationDepartment._id),
         },
         {
-          name: 'PAN',
-          description: 'Valid PAN card copy.',
-          service: new Types.ObjectId(newCarRegistration._id),
+          name: 'Driver’s License',
+          description: 'Apply for or renew a driver’s license.',
+          department: new Types.ObjectId(transportDepartment._id),
         },
         {
-          name: 'Insurance',
-          description: 'Valid vehicle insurance document.',
-          service: new Types.ObjectId(newCarRegistration._id),
-        },
-        {
-          name: 'Invoice',
-          description: 'Vehicle purchase invoice from dealer.',
-          service: new Types.ObjectId(newCarRegistration._id),
-        },
-        {
-          name: 'Driving Test Certificate',
-          description: 'Driving test pass certificate.',
-          service: new Types.ObjectId(drivingLicenseRenewal._id),
-        },
-        {
-          name: 'Aadhaar',
-          description: 'Government-issued Aadhaar copy.',
-          service: new Types.ObjectId(drivingLicenseRenewal._id),
-        },
-        {
-          name: 'Birth Certificate',
-          description: 'Official birth certificate copy.',
-          service: new Types.ObjectId(passportApplication._id),
-        },
-        {
-          name: 'Address Proof',
-          description: 'Address proof such as utility bill or rent agreement.',
-          service: new Types.ObjectId(passportApplication._id),
-        },
-        {
-          name: 'Aadhaar',
-          description: 'Government-issued Aadhaar copy.',
-          service: new Types.ObjectId(passportApplication._id),
-        },
-        {
-          name: 'Aadhaar',
-          description: 'Government-issued Aadhaar copy.',
-          service: new Types.ObjectId(panCardIssuance._id),
-        },
-        {
-          name: 'PAN',
-          description: 'Existing PAN or PAN acknowledgment document.',
-          service: new Types.ObjectId(panCardIssuance._id),
+          name: 'Vehicle Registration',
+          description: 'Register or transfer vehicle ownership.',
+          department: new Types.ObjectId(transportDepartment._id),
         },
       ]);
 
-      this.logger.log('✅ Seed complete');
+      this.logger.log('✅ Seed completed');
     } catch (error: any) {
       this.logger.error(`❌ Seed failed: ${error?.message || String(error)}`);
       throw error;

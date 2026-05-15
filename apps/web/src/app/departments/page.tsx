@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { cn } from '../../lib/utils';
 import apiClient from '../../services/apiClient';
 import { Department, Service } from '@connect/types';
+import { getServiceDepartmentId } from '../../services/services';
 
 const visuals = [
   { icon: Car, color: 'bg-blue-500' },
@@ -36,24 +37,23 @@ export default function DepartmentsPage() {
     const loadDepartments = async () => {
       try {
         const departmentsRes = await apiClient.get<Department[]>('/departments');
+        const servicesRes = await apiClient.get<Service[]>('/services');
         const loadedDepartments = departmentsRes.data || [];
+        const loadedServices = servicesRes.data || [];
         setDepartments(loadedDepartments);
 
-        const servicesResponses = await Promise.all(
-          loadedDepartments.map((department) =>
-            apiClient.get<Service[]>(`/departments/${department._id}/services`),
-          ),
-        );
-
         const counts = loadedDepartments.reduce<Record<string, number>>(
-          (acc, department, index) => {
-            acc[department._id] = servicesResponses[index].data?.length ?? 0;
+          (acc, department) => {
+            acc[department._id] = loadedServices.filter(
+              (service) => getServiceDepartmentId(service) === department._id,
+            ).length;
             return acc;
           },
           {},
         );
         setServiceCountByDepartment(counts);
       } catch (err: any) {
+        console.error('[Departments page failed]', err);
         setError(err?.response?.data?.message || 'Unable to load departments.');
       } finally {
         setIsLoading(false);
