@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const apiBaseUrl = (
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+).replace(/\/api\/?$/, '');
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL: apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,5 +20,22 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const method = error?.config?.method?.toUpperCase?.() || 'REQUEST';
+    const url = `${error?.config?.baseURL || ''}${error?.config?.url || ''}`;
+
+    console.error('[API request failed]', {
+      method,
+      url,
+      status: error?.response?.status,
+      message: error?.response?.data?.message || error?.message,
+    });
+
+    return Promise.reject(error);
+  },
+);
 
 export default apiClient;

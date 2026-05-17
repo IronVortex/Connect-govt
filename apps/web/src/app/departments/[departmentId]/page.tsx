@@ -8,27 +8,69 @@ import { Topbar } from '../../../components/Topbar';
 import { ArrowRight, FileText, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Department, Service } from '@connect/types';
+import { getServicesForDepartment } from '../../../services/services';
+
+const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
+
+function getDepartmentIdParam(value: string | string[] | undefined): string {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+
+  if (!rawValue) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(rawValue).trim();
+  } catch {
+    return rawValue.trim();
+  }
+}
 
 export default function DepartmentDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const departmentId = params?.departmentId as string;
+  const departmentId = getDepartmentIdParam(
+    params?.departmentId as string | string[] | undefined,
+  );
   const [department, setDepartment] = useState<Department | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!departmentId) return;
+    setDepartment(null);
+    setServices([]);
+    setError('');
+
+    if (!departmentId) {
+      setIsLoading(false);
+      setError('Missing department id.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    if (!mongoObjectIdPattern.test(departmentId)) {
+      console.error('[Department detail invalid id]', {
+        departmentId,
+        rawDepartmentId: params?.departmentId,
+      });
+      setError('Invalid department link. Please choose a department from the list.');
+      setIsLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
-        const [deptRes, servicesRes] = await Promise.all([
+        console.log('[Department detail request]', { departmentId });
+        const [deptRes, departmentServices] = await Promise.all([
           apiClient.get(`/departments/${departmentId}`),
-          apiClient.get(`/services/department/${departmentId}`),
+          getServicesForDepartment(departmentId),
         ]);
         setDepartment(deptRes.data);
-        setServices(servicesRes.data);
+        setServices(departmentServices);
       } catch (err: any) {
+        console.error('[Department detail failed]', err);
         setError(err?.response?.data?.message || 'Unable to load department details.');
       } finally {
         setIsLoading(false);
