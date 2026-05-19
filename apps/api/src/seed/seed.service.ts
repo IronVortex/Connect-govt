@@ -78,7 +78,7 @@ export class SeedService implements OnModuleInit {
           },
         ]);
 
-      await this.serviceModel.insertMany([
+      const services = await this.serviceModel.insertMany([
         {
           name: 'Hospital Registration',
           description: 'Register for hospital services and appointments.',
@@ -108,6 +108,87 @@ export class SeedService implements OnModuleInit {
           name: 'Vehicle Registration',
           description: 'Register or transfer vehicle ownership.',
           department: new Types.ObjectId(transportDepartment._id),
+        },
+      ]);
+
+      const hospitalReg = services.find(s => s.name === 'Hospital Registration');
+      const vaccination = services.find(s => s.name === 'Vaccination');
+      const schoolAdm = services.find(s => s.name === 'School Admission');
+      const scholarship = services.find(s => s.name === 'Scholarship Application');
+      const license = services.find(s => s.name === 'Driver’s License');
+      const vehicle = services.find(s => s.name === 'Vehicle Registration');
+
+      await this.requiredDocumentModel.insertMany([
+        // Vaccination
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity issued by UIDAI.',
+          service: new Types.ObjectId(vaccination?._id),
+        },
+        // Hospital Registration
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity issued by UIDAI.',
+          service: new Types.ObjectId(hospitalReg?._id),
+        },
+        {
+          name: 'Insurance Certificate',
+          description: 'Valid health insurance card/certificate.',
+          service: new Types.ObjectId(hospitalReg?._id),
+        },
+        // School Admission
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity issued by UIDAI.',
+          service: new Types.ObjectId(schoolAdm?._id),
+        },
+        {
+          name: 'Address Proof',
+          description: 'Utility bill or rent agreement.',
+          service: new Types.ObjectId(schoolAdm?._id),
+        },
+        // Scholarship
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity.',
+          service: new Types.ObjectId(scholarship?._id),
+        },
+        {
+          name: 'Invoice / Bill of Sale',
+          description: 'Tuition fees receipt or invoice.',
+          service: new Types.ObjectId(scholarship?._id),
+        },
+        // Driver's License
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity.',
+          service: new Types.ObjectId(license?._id),
+        },
+        {
+          name: 'PAN Card',
+          description: 'Permanent Account Number card.',
+          service: new Types.ObjectId(license?._id),
+        },
+        // Vehicle Registration
+        {
+          name: 'Aadhaar Card',
+          description: 'Proof of identity.',
+          service: new Types.ObjectId(vehicle?._id),
+        },
+        {
+          name: 'PAN Card',
+          description: 'Permanent Account Number card.',
+          service: new Types.ObjectId(vehicle?._id),
+        },
+        {
+          name: 'Invoice / Bill of Sale',
+          description: 'Sales invoice from dealer.',
+          service: new Types.ObjectId(vehicle?._id),
+        },
+        {
+          name: 'Insurance Certificate',
+          description: 'Valid motor insurance policy document.',
+          service: new Types.ObjectId(vehicle?._id),
         },
       ]);
 

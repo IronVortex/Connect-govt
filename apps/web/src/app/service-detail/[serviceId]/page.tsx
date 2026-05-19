@@ -101,26 +101,37 @@ export default function ServiceDetailPage() {
     if (document?.name) {
       formData.append('expectedDocumentType', document.name);
     }
-
     try {
-      const response = await apiClient.post('/upload', formData, {
+      const response = await apiClient.post(`/upload/${documentId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
       const payload = response.data as {
-        documentType: string;
-        status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+        detectedType: string;
+        detectionStatus: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
       };
 
       setStatusByDocumentId((prev) => ({
         ...prev,
         [documentId]: {
-          status: payload.status,
-          documentType: payload.documentType,
+          status: payload.detectionStatus,
+          documentType: payload.detectedType,
         },
       }));
+
+      // Trigger a state reload for uploads and statistics
+      try {
+        const [uploadsRes, summaryRes] = await Promise.all([
+          apiClient.get('/upload/me'),
+          apiClient.get('/application-summary'),
+        ]);
+        setUploads(uploadsRes.data || []);
+        setSummary(summaryRes.data);
+      } catch (err) {
+        console.warn('Failed to refresh upload summary:', err);
+      }
     } catch (err: any) {
       setUploadError(err?.response?.data?.message || 'Upload failed. Please try again.');
       setToastMessage('Upload failed. Please try again.');

@@ -6,7 +6,6 @@ import { UploadsService } from './uploads.service';
 import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { User, UserSchema } from '../../models/User';
-import * as multer from 'multer';
 import { diskStorage } from 'multer';
 
 @Module({

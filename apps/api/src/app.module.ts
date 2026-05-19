@@ -24,17 +24,20 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
     }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        uri:
-          configService.get<string>('MONGODB_URI') ||
-          'mongodb://localhost:27017/connect-govt',
-        dbName: configService.get<string>('MONGODB_DB') || 'connect-govt',
-        serverSelectionTimeoutMS: 5000,
-        retryAttempts: 1,
-        retryDelay: 1000,
-        lazyConnection: true,
-        bufferCommands: false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const uri = configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/connect-govt';
+        const dbName = configService.get<string>('MONGODB_DB') || 'connect-govt';
+        
+        return {
+          uri,
+          dbName,
+          serverSelectionTimeoutMS: 5000,
+          socketTimeoutMS: 45000,
+          retryAttempts: 3,
+          retryDelay: 1000,
+          autoIndex: true,
+        };
+      },
     }),
     MongooseModule.forFeature([
       { name: Department.name, schema: DepartmentSchema },
