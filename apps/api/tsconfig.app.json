@@ -2,7 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
-    "module": "commonjs",
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "rootDir": "./src",
     "types": ["node"]
   },
   "include": ["src/**/*.ts"]

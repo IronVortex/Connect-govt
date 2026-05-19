@@ -9,6 +9,7 @@ import { ArrowRight, FileText, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Department, Service } from '@connect/types';
 import { getServicesForDepartment } from '../../../services/services';
+import { useAuth } from '../../../lib/AuthContext';
 
 const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
 
@@ -29,6 +30,7 @@ function getDepartmentIdParam(value: string | string[] | undefined): string {
 export default function DepartmentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const departmentId = getDepartmentIdParam(
     params?.departmentId as string | string[] | undefined,
   );
@@ -38,6 +40,8 @@ export default function DepartmentDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
     setDepartment(null);
     setServices([]);
     setError('');

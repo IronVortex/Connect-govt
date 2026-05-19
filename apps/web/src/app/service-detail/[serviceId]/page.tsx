@@ -8,10 +8,12 @@ import { Sidebar } from '../../../components/Sidebar';
 import { Topbar } from '../../../components/Topbar';
 import { ArrowRight, CheckCircle2, FileText, Info, Clock } from 'lucide-react';
 import { RequiredDocument, Service, UploadedDocument, ApplicationSummary } from '@connect/types';
+import { useAuth } from '../../../lib/AuthContext';
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const serviceId = params?.serviceId as string;
+  const { user, loading: authLoading } = useAuth();
   const [service, setService] = useState<Service | null>(null);
   const [documents, setDocuments] = useState<RequiredDocument[]>([]);
   const [uploads, setUploads] = useState<UploadedDocument[]>([]);
@@ -31,7 +33,15 @@ export default function ServiceDetailPage() {
   };
 
   useEffect(() => {
-    if (!serviceId) return;
+    if (!serviceId || serviceId === '[serviceId]') return;
+    if (authLoading || !user) return;
+
+    const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
+    if (!mongoObjectIdPattern.test(serviceId)) {
+      console.warn('[ServiceDetailPage] Invalid service ID pattern:', serviceId);
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
       setLoading(true);

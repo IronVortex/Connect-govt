@@ -5,13 +5,17 @@ import { Sidebar } from '../../components/Sidebar';
 import { Topbar } from '../../components/Topbar';
 import apiClient from '../../services/apiClient';
 import { ApplicationSummary } from '@connect/types';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function ApplicationsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
     const loadSummary = async () => {
       try {
         const response = await apiClient.get('/application-summary');
