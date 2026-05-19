@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import apiClient from '../../../services/apiClient';
-import { setAccessToken } from '../../../services/auth';
+import { useAuth } from '../../../lib/AuthContext';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('user@example.com');
   const [password, setPassword] = useState('Password123!');
   const [error, setError] = useState('');
@@ -18,12 +16,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
-      setAccessToken(response.data.access_token);
-      router.push('/dashboard');
+      await login(email, password);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Login failed. Please check your credentials.');
-    } finally {
       setLoading(false);
     }
   };

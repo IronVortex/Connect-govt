@@ -9,6 +9,7 @@ import { cn } from '../../lib/utils';
 import apiClient from '../../services/apiClient';
 import { Department, Service } from '@connect/types';
 import { getServiceDepartmentId } from '../../services/services';
+import { useAuth } from '../../lib/AuthContext';
 
 const visuals = [
   { icon: Car, color: 'bg-blue-500' },
@@ -18,12 +19,15 @@ const visuals = [
 ];
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [serviceCountByDepartment, setServiceCountByDepartment] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
     const loadDepartments = async () => {
       try {
         const departmentsRes = await apiClient.get<Department[]>('/departments');
