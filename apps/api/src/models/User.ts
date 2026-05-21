@@ -5,19 +5,19 @@ export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   email!: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   password!: string;
 
-  @Prop()
+  @Prop({ type: String })
   name?: string;
 
-  @Prop({ default: 'user' })
+  @Prop({ default: 'user', type: String })
   role?: string;
 
-  @Prop({ default: Date.now })
+  @Prop({ default: Date.now, type: Date })
   createdAt?: Date;
 }
 

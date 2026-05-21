@@ -11,25 +11,25 @@ export class UploadedDocument {
   @Prop({ type: Types.ObjectId, ref: 'RequiredDocument', required: true })
   requiredDocument!: Types.ObjectId | string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   filename!: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   path!: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   mimetype!: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Number })
   size!: number;
 
-  @Prop({ default: 'UNKNOWN' })
+  @Prop({ default: 'UNKNOWN', type: String })
   detectionStatus?: string;
 
-  @Prop()
+  @Prop({ type: String })
   detectedType?: string;
 
-  @Prop({ default: Date.now })
+  @Prop({ default: Date.now, type: Date })
   uploadedAt?: Date;
 }
 

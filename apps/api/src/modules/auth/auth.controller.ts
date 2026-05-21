@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, UnauthorizedException, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, UnauthorizedException, Get, Inject } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { IsEmail, IsString, MinLength } from 'class-validator';
@@ -26,7 +26,7 @@ class LoginDto {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(@Inject(AuthService) private authService: AuthService) {}
 
   @Post('register')
   async register(@Body() body: RegisterDto) {

@@ -46,3 +46,6 @@ next-env.d.ts
 # Next.js
 .next
 out
+
+# Temp projects
+get-shit-done-for-antigravity/

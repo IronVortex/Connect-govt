@@ -5,13 +5,13 @@ export type DepartmentDocument = Department & Document;
 
 @Schema()
 export class Department {
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   name!: string;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop({ default: Date.now })
+  @Prop({ default: Date.now, type: Date })
   createdAt?: Date;
 }
 

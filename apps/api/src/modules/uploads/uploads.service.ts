@@ -15,10 +15,10 @@ export class UploadsService {
   }
 
   async findByUser(userId: string): Promise<UploadedDocument[]> {
-    return this.uploadModel.find({ user: userId }).populate('requiredDocument').exec();
+    return this.uploadModel.find({ user: userId }).populate('requiredDocument').exec() as any;
   }
 
-  async findOne(uploadId: string): Promise<UploadedDocument> {
+  async findOne(uploadId: string): Promise<UploadedDocument | null> {
     return this.uploadModel.findById(uploadId).populate('requiredDocument').exec();
   }
 

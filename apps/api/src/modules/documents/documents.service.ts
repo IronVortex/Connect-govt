@@ -10,11 +10,11 @@ export class DocumentsService {
   ) {}
 
   async findAll(): Promise<RequiredDocument[]> {
-    return this.documentModel.find().populate('service').exec();
+    return this.documentModel.find().populate('service').exec() as any;
   }
 
   async findByService(serviceId: string): Promise<RequiredDocument[]> {
-    return this.documentModel.find({ service: serviceId }).exec();
+    return this.documentModel.find({ service: serviceId }).exec() as any;
   }
 
   async findOne(id: string): Promise<RequiredDocument | null> {

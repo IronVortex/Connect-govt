@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { DepartmentsService } from './departments/departments.service';
 import { ServicesService } from './services/services.service';
 import { DocumentsService } from './documents/documents.service';
@@ -6,15 +6,15 @@ import { UsersService } from './users/users.service';
 import { AuthService } from './auth/auth.service';
 
 @Injectable()
-export class SeedService {
+export class SeedService implements OnModuleInit {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
-    private departmentsService: DepartmentsService,
-    private servicesService: ServicesService,
-    private documentsService: DocumentsService,
-    private usersService: UsersService,
-    private authService: AuthService,
+    @Inject(DepartmentsService) private departmentsService: DepartmentsService,
+    @Inject(ServicesService) private servicesService: ServicesService,
+    @Inject(DocumentsService) private documentsService: DocumentsService,
+    @Inject(UsersService) private usersService: UsersService,
+    @Inject(AuthService) private authService: AuthService,
   ) {}
 
   async onModuleInit() {

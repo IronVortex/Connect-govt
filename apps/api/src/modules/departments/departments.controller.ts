@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Inject } from '@nestjs/common';
 import { DepartmentsService } from './departments.service';
 
 @Controller('departments')
 export class DepartmentsController {
-  constructor(private departmentsService: DepartmentsService) {}
+  constructor(@Inject(DepartmentsService) private departmentsService: DepartmentsService) {}
 
   @Get()
   findAll() {
