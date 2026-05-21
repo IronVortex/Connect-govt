@@ -49,3 +49,6 @@ out
 
 # Temp projects
 get-shit-done-for-antigravity/
+
+.claude/worktrees
+.claude/settings.local.json

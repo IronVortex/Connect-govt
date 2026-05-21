@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedDocument';
+import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
+import { User, UserSchema } from '../../models/User';
 import * as multer from 'multer';
 import { diskStorage } from 'multer';
 
@@ -17,7 +19,11 @@ import { diskStorage } from 'multer';
         },
       }),
     }),
-    MongooseModule.forFeature([{ name: UploadedDocument.name, schema: UploadedDocumentSchema }]),
+    MongooseModule.forFeature([
+      { name: UploadedDocument.name, schema: UploadedDocumentSchema },
+      { name: RequiredDocument.name, schema: RequiredDocumentSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
   ],
   controllers: [UploadsController],
   providers: [UploadsService],

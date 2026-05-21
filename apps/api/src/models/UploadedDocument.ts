@@ -1,36 +1,61 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
-export type UploadedDocumentDocument = UploadedDocument & Document;
+export type UploadedDocumentDocument = HydratedDocument<UploadedDocument>;
 
-@Schema()
+@Schema({
+  timestamps: true,
+})
 export class UploadedDocument {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  user!: Types.ObjectId | string;
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: true,
+  })
+  user!: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'RequiredDocument', required: true })
-  requiredDocument!: Types.ObjectId | string;
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'RequiredDocument',
+    required: true,
+  })
+  requiredDocument!: Types.ObjectId;
 
-  @Prop({ required: true, type: String })
+  @Prop({
+    type: String,
+    required: true,
+  })
   filename!: string;
 
-  @Prop({ required: true, type: String })
+  @Prop({
+    type: String,
+    required: true,
+  })
   path!: string;
 
-  @Prop({ required: true, type: String })
+  @Prop({
+    type: String,
+    required: true,
+  })
   mimetype!: string;
 
-  @Prop({ required: true, type: Number })
+  @Prop({
+    type: Number,
+    required: true,
+  })
   size!: number;
 
-  @Prop({ default: 'UNKNOWN', type: String })
+  @Prop({
+    type: String,
+    default: 'UNKNOWN',
+  })
   detectionStatus?: string;
 
-  @Prop({ type: String })
+  @Prop({
+    type: String,
+  })
   detectedType?: string;
-
-  @Prop({ default: Date.now, type: Date })
-  uploadedAt?: Date;
 }
 
-export const UploadedDocumentSchema = SchemaFactory.createForClass(UploadedDocument);
+export const UploadedDocumentSchema =
+  SchemaFactory.createForClass(UploadedDocument);

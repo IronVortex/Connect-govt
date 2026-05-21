@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import apiClient from '../../../services/apiClient';
-import { setAccessToken } from '../../../services/auth';
+import { useAuth } from '../../../lib/AuthContext';
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const { register } = useAuth();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -19,13 +17,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/register', { email, password, name });
-      const login = await apiClient.post('/auth/login', { email, password });
-      setAccessToken(login.data.access_token);
-      router.push('/dashboard');
+      await register(name, email, password);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Register failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

@@ -1,18 +1,62 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { Topbar } from '../../components/Topbar';
 import { ArrowRight, ChevronRight, Car, FileText, Landmark, Users, Info } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../lib/utils';
+import apiClient from '../../services/apiClient';
+import { Department, Service } from '@connect/types';
+import { getServiceDepartmentId } from '../../services/services';
+import { useAuth } from '../../lib/AuthContext';
 
-const departments = [
-  { name: 'Transport Department (RTO)', icon: Car, services: 12, color: 'bg-blue-500' },
-  { name: 'Passport Seva', icon: FileText, services: 5, color: 'bg-indigo-500' },
-  { name: 'Municipality', icon: Landmark, services: 24, color: 'bg-emerald-500' },
-  { name: 'Revenue Department', icon: Users, services: 18, color: 'bg-amber-500' },
+const visuals = [
+  { icon: Car, color: 'bg-blue-500' },
+  { icon: FileText, color: 'bg-indigo-500' },
+  { icon: Landmark, color: 'bg-emerald-500' },
+  { icon: Users, color: 'bg-amber-500' },
 ];
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [serviceCountByDepartment, setServiceCountByDepartment] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const loadDepartments = async () => {
+      try {
+        const departmentsRes = await apiClient.get<Department[]>('/departments');
+        const servicesRes = await apiClient.get<Service[]>('/services');
+        const loadedDepartments = departmentsRes.data || [];
+        const loadedServices = servicesRes.data || [];
+        setDepartments(loadedDepartments);
+
+        const counts = loadedDepartments.reduce<Record<string, number>>(
+          (acc, department) => {
+            acc[department._id] = loadedServices.filter(
+              (service) => getServiceDepartmentId(service) === department._id,
+            ).length;
+            return acc;
+          },
+          {},
+        );
+        setServiceCountByDepartment(counts);
+      } catch (err: any) {
+        console.error('[Dashboard departments failed]', err);
+        setError(err?.response?.data?.message || 'Unable to load departments.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDepartments();
+  }, []);
+
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
       <Sidebar />
@@ -25,26 +69,50 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {departments.map((dept) => (
-              <Link 
-                key={dept.name} 
-                href={`/departments/${dept.name.toLowerCase().replace(/ /g, '-')}`}
-                className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 relative overflow-hidden"
-              >
-                <div className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform shadow-lg",
-                  dept.color
-                )}>
-                  <dept.icon className="w-7 h-7" />
-                </div>
-                <h3 className="text-[20px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight">{dept.name}</h3>
-                <p className="text-[14px] text-slate-400 mt-1.5 font-medium">{dept.services} Services available</p>
-                <div className="mt-8 flex items-center text-[14px] font-bold text-[#1D61FF]">
-                  View all services
-                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </Link>
-            ))}
+            {isLoading ? (
+              <div className="col-span-full rounded-[24px] border border-slate-100 bg-white p-8 text-center text-slate-500">
+                Loading departments...
+              </div>
+            ) : error ? (
+              <div className="col-span-full rounded-[24px] border border-red-200 bg-red-50 p-8 text-center text-red-700">
+                {error}
+              </div>
+            ) : (
+              departments.map((dept, index) => {
+                const visual = visuals[index % visuals.length];
+                const Icon = visual.icon;
+
+                return (
+                  <Link
+                    key={dept._id}
+                    href={`/departments/${dept._id}`}
+                    className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 relative overflow-hidden"
+                  >
+                    <div
+                      className={cn(
+                        'w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform shadow-lg',
+                        visual.color,
+                      )}
+                    >
+                      <Icon className="w-7 h-7" />
+                    </div>
+                    <h3 className="text-[20px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight">{dept.name}</h3>
+                    <p className="text-[14px] text-slate-400 mt-1.5 font-medium">
+                      {serviceCountByDepartment[dept._id] ?? 0} Services available
+                    </p>
+                    <div className="mt-8 flex items-center text-[14px] font-bold text-[#1D61FF]">
+                      View all services
+                      <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+            {!isLoading && !error && departments.length === 0 && (
+              <div className="col-span-full rounded-[24px] border border-slate-100 bg-white p-8 text-center text-slate-500">
+                No departments available yet.
+              </div>
+            )}
           </div>
 
           <div className="mt-16 bg-[#EDF3FF] border border-[#1D61FF]/10 rounded-[24px] p-10 flex items-center justify-between shadow-sm">

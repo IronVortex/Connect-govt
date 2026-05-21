@@ -6,12 +6,14 @@ import Link from 'next/link';
 import apiClient from '../../../services/apiClient';
 import { Sidebar } from '../../../components/Sidebar';
 import { Topbar } from '../../../components/Topbar';
-import { ArrowRight, CheckCircle2, Upload, FileText, Info, Clock, AlertCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FileText, Info, Clock } from 'lucide-react';
 import { RequiredDocument, Service, UploadedDocument, ApplicationSummary } from '@connect/types';
+import { useAuth } from '../../../lib/AuthContext';
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const serviceId = params?.serviceId as string;
+  const { user, loading: authLoading } = useAuth();
   const [service, setService] = useState<Service | null>(null);
   const [documents, setDocuments] = useState<RequiredDocument[]>([]);
   const [uploads, setUploads] = useState<UploadedDocument[]>([]);
@@ -19,23 +21,49 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+  const [statusByDocumentId, setStatusByDocumentId] = useState<
+    Record<string, { status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN'; documentType: string }>
+  >({});
+
+  const statusStyleMap: Record<'DETECTED' | 'MISMATCH' | 'UNKNOWN', string> = {
+    DETECTED: 'bg-green-100 text-green-700 border-green-200',
+    MISMATCH: 'bg-red-100 text-red-700 border-red-200',
+    UNKNOWN: 'bg-slate-100 text-slate-700 border-slate-200',
+  };
 
   useEffect(() => {
-    if (!serviceId) return;
+    if (!serviceId || serviceId === '[serviceId]') return;
+    if (authLoading || !user) return;
+
+    const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
+    if (!mongoObjectIdPattern.test(serviceId)) {
+      console.warn('[ServiceDetailPage] Invalid service ID pattern:', serviceId);
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
       setLoading(true);
       try {
-        const [serviceRes, docsRes, uploadsRes, summaryRes] = await Promise.all([
+        const [serviceRes, docsRes] = await Promise.all([
           apiClient.get(`/services/${serviceId}`),
-          apiClient.get(`/documents/service/${serviceId}`),
-          apiClient.get('/upload/me'),
-          apiClient.get('/application-summary'),
+          apiClient.get(`/services/${serviceId}/documents`),
         ]);
         setService(serviceRes.data);
         setDocuments(docsRes.data);
-        setUploads(uploadsRes.data || []);
-        setSummary(summaryRes.data);
+
+        try {
+          const [uploadsRes, summaryRes] = await Promise.all([
+            apiClient.get('/upload/me'),
+            apiClient.get('/application-summary'),
+          ]);
+          setUploads(uploadsRes.data || []);
+          setSummary(summaryRes.data);
+        } catch {
+          setUploads([]);
+          setSummary(null);
+        }
       } catch (err: any) {
         console.error(err);
       } finally {
@@ -46,28 +74,56 @@ export default function ServiceDetailPage() {
     load();
   }, [serviceId]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = window.setTimeout(() => {
+      setToastMessage('');
+    }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
+
   const handleFileUpload = async (documentId: string, file: File | null) => {
     if (!file) return;
     setUploadError('');
+
+    const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+    if (!allowedMimeTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setUploadError('Upload failed. Please try again.');
+      setToastMessage('Upload failed. Please try again.');
+      return;
+    }
+
+    const document = documents.find((item) => item._id === documentId);
     setUploadingId(documentId);
 
     const formData = new FormData();
     formData.append('file', file);
+    if (document?.name) {
+      formData.append('expectedDocumentType', document.name);
+    }
 
     try {
-      await apiClient.post(`/upload/${documentId}`, formData, {
+      const response = await apiClient.post('/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      const [uploadsRes, summaryRes] = await Promise.all([
-        apiClient.get('/upload/me'),
-        apiClient.get('/application-summary'),
-      ]);
-      setUploads(uploadsRes.data);
-      setSummary(summaryRes.data);
+
+      const payload = response.data as {
+        documentType: string;
+        status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+      };
+
+      setStatusByDocumentId((prev) => ({
+        ...prev,
+        [documentId]: {
+          status: payload.status,
+          documentType: payload.documentType,
+        },
+      }));
     } catch (err: any) {
       setUploadError(err?.response?.data?.message || 'Upload failed. Please try again.');
+      setToastMessage('Upload failed. Please try again.');
     } finally {
       setUploadingId(null);
     }
@@ -75,6 +131,11 @@ export default function ServiceDetailPage() {
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
+      {toastMessage && (
+        <div className="fixed right-6 top-6 z-50 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-lg">
+          {toastMessage}
+        </div>
+      )}
       <Sidebar />
       <div className="flex-1 flex flex-col pl-[280px]">
         <Topbar />
@@ -106,6 +167,8 @@ export default function ServiceDetailPage() {
                   ) : (
                     documents.map((document) => {
                       const currentUpload = uploads.find((upload) => upload.requiredDocument === document._id || (typeof upload.requiredDocument !== 'string' && upload.requiredDocument._id === document._id));
+                      const statusPayload = statusByDocumentId[document._id];
+                      const status = statusPayload?.status || currentUpload?.detectionStatus;
                       return (
                         <div key={document._id} className="rounded-[24px] border border-slate-100 bg-slate-50 p-6">
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -116,17 +179,27 @@ export default function ServiceDetailPage() {
 
                             <div className="flex flex-col gap-3 sm:items-end">
                               <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#1D61FF] bg-white px-4 py-3 text-sm font-semibold text-[#1D61FF] shadow-sm hover:bg-[#EFF6FF] transition-colors">
-                                Upload document
+                                {uploadingId === document._id ? 'Uploading...' : 'Upload document'}
                                 <input
                                   type="file"
                                   accept="application/pdf,image/png,image/jpeg"
                                   className="hidden"
+                                  disabled={uploadingId === document._id}
                                   onChange={(event) => handleFileUpload(document._id, event.target.files?.[0] ?? null)}
                                 />
                               </label>
-                              {currentUpload ? (
-                                <div className="text-sm font-semibold text-[#0F172A]">
-                                  Status: <span className="text-[#1D61FF]">{currentUpload.detectionStatus}</span>
+                              {status ? (
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${statusStyleMap[status]}`}
+                                  >
+                                    {status}
+                                  </span>
+                                  {statusPayload?.documentType && (
+                                    <span className="text-xs font-medium text-slate-500">
+                                      {statusPayload.documentType}
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="text-sm text-slate-500">Waiting for upload.</div>

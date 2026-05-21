@@ -1,21 +1,27 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 
-export type RequiredDocumentDocument = RequiredDocument & Document;
+export type RequiredDocumentDocument = HydratedDocument<RequiredDocument> & {
+  _id: Types.ObjectId;
+};
 
-@Schema()
+@Schema({
+  timestamps: true,
+})
 export class RequiredDocument {
-  @Prop({ required: true, type: String })
+  @Prop({ type: String, required: true })
   name!: string;
 
   @Prop({ type: String })
   description?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Service', required: true })
-  service!: Types.ObjectId | string;
-
-  @Prop({ default: Date.now, type: Date })
-  createdAt?: Date;
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Service',
+    required: true,
+  })
+  service!: Types.ObjectId;
 }
 
-export const RequiredDocumentSchema = SchemaFactory.createForClass(RequiredDocument);
+export const RequiredDocumentSchema =
+  SchemaFactory.createForClass(RequiredDocument);
