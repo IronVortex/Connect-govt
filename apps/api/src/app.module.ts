@@ -14,6 +14,7 @@ import { AppController } from './app.controller';
 import { Department, DepartmentSchema } from './models/Department';
 import { Service, ServiceSchema } from './models/Service';
 import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocument';
+import { Application, ApplicationSchema } from './models/Application';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 
 @Module({
@@ -43,6 +44,7 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
       { name: Department.name, schema: DepartmentSchema },
       { name: Service.name, schema: ServiceSchema },
       { name: RequiredDocument.name, schema: RequiredDocumentSchema },
+      { name: Application.name, schema: ApplicationSchema },
     ]),
     AuthModule,
     UsersModule,
