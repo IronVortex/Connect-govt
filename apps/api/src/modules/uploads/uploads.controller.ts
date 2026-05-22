@@ -37,7 +37,7 @@ export class UploadsController {
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size >= 5 * 1024 * 1024) {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
@@ -67,7 +67,7 @@ export class UploadsController {
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size >= 5 * 1024 * 1024) {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 

@@ -26,13 +26,10 @@ apiClient.interceptors.response.use(
   (error) => {
     const method = error?.config?.method?.toUpperCase?.() || 'REQUEST';
     const url = `${error?.config?.baseURL || ''}${error?.config?.url || ''}`;
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || error?.message || 'Unknown API error';
 
-    console.error('[API request failed]', {
-      method,
-      url,
-      status: error?.response?.status,
-      message: error?.response?.data?.message || error?.message,
-    });
+    console.error(`[API request failed] ${method} ${url} ${status || ''} ${message}`);
 
     return Promise.reject(error);
   },
