@@ -7,7 +7,7 @@ export type ApplicationDocument = HydratedDocument<Application> & {
 export const APPLICATION_STATUSES = [
   'DRAFT',
   'SUBMITTED',
-  'IN_PROGRESS',
+  'UNDER_REVIEW',
   'APPROVED',
   'REJECTED',
 ] as const;
@@ -37,11 +37,25 @@ export class Application {
   @Prop({
     type: String,
     enum: APPLICATION_STATUSES,
-    default: 'SUBMITTED',
+    default: 'DRAFT',
     required: true,
     index: true,
   })
   status!: ApplicationStatus;
+
+  @Prop({
+    type: String,
+    unique: true,
+    default: () => new Types.ObjectId().toHexString(),
+    index: true,
+  })
+  appId!: string;
+
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: 'UploadedDocument' }],
+    default: [],
+  })
+  uploadedDocuments!: Types.ObjectId[];
 
   @Prop({
     type: String,

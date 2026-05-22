@@ -8,6 +8,9 @@ import { Sidebar } from '../../../components/Sidebar';
 import { Topbar } from '../../../components/Topbar';
 import { AlertCircle, ArrowRight, CheckCircle2, Clock, FileText, Info, Upload } from 'lucide-react';
 import { RequiredDocument, Service, UploadedDocument, ApplicationSummary } from '@connect/types';
+import { Card } from '../../../components/Card';
+import { Badge } from '../../../components/Badge';
+import { Skeleton } from '../../../components/Skeleton';
 import { useAuth } from '../../../lib/AuthContext';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
@@ -218,7 +221,7 @@ export default function ServiceDetailPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-8">
             <section className="space-y-8">
-              <div className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm shadow-slate-200/40">
+              <Card title="Required Documents">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="h-16 w-16 rounded-3xl bg-[#EEF2FF] flex items-center justify-center text-[#1D4ED8]">
                     <FileText className="w-7 h-7" />
@@ -230,9 +233,7 @@ export default function ServiceDetailPage() {
                 </div>
 
                 <div className="overflow-hidden rounded-[24px] border border-slate-100">
-                  {loading || documents === null ? (
-                    <div className="py-12 text-center text-slate-500">Loading required documents...</div>
-                  ) : documents.length === 0 ? (
+                  {loading || documents === null ? <Skeleton height="h-12" className="w-full" /> : documents.length === 0 ? (
                     <div className="py-12 text-center text-slate-500">No required documents found for this service.</div>
                   ) : (
                     <div className="divide-y divide-slate-100 bg-white">
@@ -314,9 +315,7 @@ export default function ServiceDetailPage() {
                               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 lg:hidden">Detection status</p>
                               {status ? (
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                                  <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${statusStyleMap[status]}`}>
-                                    {status}
-                                  </span>
+                                  <Badge status={status} />
                                   {detectedType && (
                                     <span className="text-xs font-medium text-slate-500">{detectedType}</span>
                                   )}
@@ -333,7 +332,7 @@ export default function ServiceDetailPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
 
               <div className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center justify-between gap-4 mb-6">
