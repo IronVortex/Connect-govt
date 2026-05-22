@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { isValidObjectId, Model } from 'mongoose';
+import { isValidObjectId, Model, Types } from 'mongoose';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
 
 @Injectable()
@@ -30,11 +30,18 @@ export class DocumentsService {
   }
 
   async findByService(serviceId: string): Promise<RequiredDocument[]> {
+    this.logger.log(`[DocumentsService] findByService called with serviceId: ${serviceId}`);
     if (!isValidObjectId(serviceId)) {
+      this.logger.warn(`[DocumentsService] Invalid ObjectId: ${serviceId}`);
       throw new BadRequestException('Invalid service id');
     }
-
-    return this.documentModel.find({ service: serviceId }).exec();
+    const objectId = new Types.ObjectId(serviceId);
+    const docs = await this.documentModel
+      .find({ service: objectId })
+      .populate('service')
+      .exec();
+    this.logger.log(`[DocumentsService] Found ${docs.length} documents for service ${serviceId}`);
+    return docs;
   }
 
   async findOne(id: string): Promise<RequiredDocument | null> {

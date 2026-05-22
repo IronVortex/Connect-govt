@@ -5,12 +5,15 @@ import {
   UploadedDocument,
   UploadedDocumentDocument,
 } from '../../models/UploadedDocument';
+import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
 
 @Injectable()
 export class UploadsService {
   constructor(
     @InjectModel(UploadedDocument.name)
     private uploadModel: Model<UploadedDocumentDocument>,
+    @InjectModel(RequiredDocument.name)
+    private requiredDocumentModel: Model<RequiredDocumentDocument>,
   ) {}
 
   async create(
@@ -18,6 +21,10 @@ export class UploadsService {
   ): Promise<UploadedDocument> {
     const newUpload = new this.uploadModel(upload);
     return newUpload.save();
+  }
+
+  async getRequiredDocument(id: string): Promise<RequiredDocument | null> {
+    return this.requiredDocumentModel.findById(id).exec();
   }
 
   async findByUser(userId: string): Promise<UploadedDocument[]> {

@@ -37,7 +37,7 @@ export class UploadsController {
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size >= 5 * 1024 * 1024) {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
@@ -67,13 +67,13 @@ export class UploadsController {
       );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size >= 5 * 1024 * 1024) {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
-    const detectedType = this.uploadsService.detectDocumentType(
-      file.originalname,
-    );
+    const requiredDoc = await this.uploadsService.getRequiredDocument(documentId);
+    const expectedType = requiredDoc ? requiredDoc.name : undefined;
+    const analysis = this.uploadsService.analyzeUpload(file.originalname, expectedType);
 
     const upload = await this.uploadsService.create({
       user: new Types.ObjectId(req.user.id),
@@ -82,9 +82,8 @@ export class UploadsController {
       path: file.path,
       mimetype: file.mimetype,
       size: file.size,
-      detectedType,
-      detectionStatus:
-        detectedType !== 'Unknown' ? 'DETECTED' : 'UNKNOWN',
+      detectedType: analysis.documentType,
+      detectionStatus: analysis.status,
     });
 
     return upload;

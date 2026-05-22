@@ -6,21 +6,34 @@ import Link from 'next/link';
 import apiClient from '../../../services/apiClient';
 import { Sidebar } from '../../../components/Sidebar';
 import { Topbar } from '../../../components/Topbar';
-import { ArrowRight, CheckCircle2, FileText, Info, Clock } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Clock, FileText, Info, Upload } from 'lucide-react';
 import { RequiredDocument, Service, UploadedDocument, ApplicationSummary } from '@connect/types';
+import { Card } from '../../../components/Card';
+import { Badge } from '../../../components/Badge';
+import { Skeleton } from '../../../components/Skeleton';
 import { useAuth } from '../../../lib/AuthContext';
+
+const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_FORMAT_LABEL = 'JPG, PNG, PDF';
+
+function getRequiredDocumentId(upload: UploadedDocument) {
+  return typeof upload.requiredDocument === 'string'
+    ? upload.requiredDocument
+    : upload.requiredDocument._id;
+}
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const serviceId = params?.serviceId as string;
   const { user, loading: authLoading } = useAuth();
   const [service, setService] = useState<Service | null>(null);
-  const [documents, setDocuments] = useState<RequiredDocument[]>([]);
+  const [documents, setDocuments] = useState<RequiredDocument[] | null>(null);
   const [uploads, setUploads] = useState<UploadedDocument[]>([]);
   const [summary, setSummary] = useState<ApplicationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState('');
+  const [messageByDocumentId, setMessageByDocumentId] = useState<Record<string, { tone: 'success' | 'error'; text: string }>>({});
   const [toastMessage, setToastMessage] = useState('');
   const [statusByDocumentId, setStatusByDocumentId] = useState<
     Record<string, { status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN'; documentType: string }>
@@ -34,14 +47,10 @@ export default function ServiceDetailPage() {
 
   useEffect(() => {
     if (!serviceId || serviceId === '[serviceId]') return;
-    if (authLoading || !user) return;
 
-    const mongoObjectIdPattern = /^[a-f\d]{24}$/i;
-    if (!mongoObjectIdPattern.test(serviceId)) {
-      console.warn('[ServiceDetailPage] Invalid service ID pattern:', serviceId);
-      setLoading(false);
-      return;
-    }
+    console.log('[ServiceDetailPage] serviceId param:', serviceId);
+    // Previously validated ObjectId format; removed to allow slugs or string IDs.
+    // Backend will handle invalid IDs and error handling below.
 
     const load = async () => {
       setLoading(true);
@@ -50,20 +59,22 @@ export default function ServiceDetailPage() {
           apiClient.get(`/services/${serviceId}`),
           apiClient.get(`/services/${serviceId}/documents`),
         ]);
+        console.log('Service API response:', serviceRes.data);
+        console.log('RAW DOCUMENT RESPONSE', docsRes);
+        console.log('RAW DOCUMENT DATA', docsRes.data);
         setService(serviceRes.data);
-        setDocuments(docsRes.data);
 
-        try {
-          const [uploadsRes, summaryRes] = await Promise.all([
-            apiClient.get('/upload/me'),
-            apiClient.get('/application-summary'),
-          ]);
-          setUploads(uploadsRes.data || []);
-          setSummary(summaryRes.data);
-        } catch {
-          setUploads([]);
-          setSummary(null);
+        let docsArray: RequiredDocument[] = [];
+        if (Array.isArray(docsRes.data)) {
+          docsArray = docsRes.data;
+        } else if (docsRes.data && Array.isArray((docsRes.data as any).documents)) {
+          docsArray = (docsRes.data as any).documents;
+        } else {
+          console.warn('[ServiceDetailPage] Unexpected documents response shape:', docsRes.data);
+          docsArray = [];
         }
+
+        setDocuments(docsArray);
       } catch (err: any) {
         console.error(err);
       } finally {
@@ -75,6 +86,32 @@ export default function ServiceDetailPage() {
   }, [serviceId]);
 
   useEffect(() => {
+    if (authLoading || !user) {
+      if (!authLoading && !user) {
+        setUploads([]);
+        setSummary(null);
+      }
+      return;
+    }
+
+    const loadUserUploadState = async () => {
+      try {
+        const [uploadsRes, summaryRes] = await Promise.all([
+          apiClient.get('/upload/me'),
+          apiClient.get('/application-summary'),
+        ]);
+        setUploads(uploadsRes.data || []);
+        setSummary(summaryRes.data);
+      } catch {
+        setUploads([]);
+        setSummary(null);
+      }
+    };
+
+    loadUserUploadState();
+  }, [authLoading, user]);
+
+  useEffect(() => {
     if (!toastMessage) return;
     const timer = window.setTimeout(() => {
       setToastMessage('');
@@ -84,16 +121,34 @@ export default function ServiceDetailPage() {
 
   const handleFileUpload = async (documentId: string, file: File | null) => {
     if (!file) return;
-    setUploadError('');
+    setMessageByDocumentId((prev) => {
+      const next = { ...prev };
+      delete next[documentId];
+      return next;
+    });
 
-    const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
-    if (!allowedMimeTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setUploadError('Upload failed. Please try again.');
-      setToastMessage('Upload failed. Please try again.');
+    if (!user) {
+      const text = 'Please sign in before uploading documents.';
+      setMessageByDocumentId((prev) => ({ ...prev, [documentId]: { tone: 'error', text } }));
+      setToastMessage(text);
       return;
     }
 
-    const document = documents.find((item) => item._id === documentId);
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      const text = 'Only JPG, PNG, and PDF files are supported.';
+      setMessageByDocumentId((prev) => ({ ...prev, [documentId]: { tone: 'error', text } }));
+      setToastMessage(text);
+      return;
+    }
+
+    if (file.size >= MAX_UPLOAD_SIZE) {
+      const text = 'File size must be less than 5MB.';
+      setMessageByDocumentId((prev) => ({ ...prev, [documentId]: { tone: 'error', text } }));
+      setToastMessage(text);
+      return;
+    }
+
+    const document = documents?.find((item) => item._id === documentId) ?? null;
     setUploadingId(documentId);
 
     const formData = new FormData();
@@ -101,29 +156,47 @@ export default function ServiceDetailPage() {
     if (document?.name) {
       formData.append('expectedDocumentType', document.name);
     }
-
     try {
-      const response = await apiClient.post('/upload', formData, {
+      const response = await apiClient.post(`/upload/${documentId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
       const payload = response.data as {
-        documentType: string;
-        status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+        detectedType: string;
+        detectionStatus: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
       };
 
       setStatusByDocumentId((prev) => ({
         ...prev,
         [documentId]: {
-          status: payload.status,
-          documentType: payload.documentType,
+          status: payload.detectionStatus,
+          documentType: payload.detectedType,
         },
       }));
+      setMessageByDocumentId((prev) => ({
+        ...prev,
+        [documentId]: {
+          tone: 'success',
+          text: `Uploaded successfully. Detection status: ${payload.detectionStatus}.`,
+        },
+      }));
+
+      try {
+        const [uploadsRes, summaryRes] = await Promise.all([
+          apiClient.get('/upload/me'),
+          apiClient.get('/application-summary'),
+        ]);
+        setUploads(uploadsRes.data || []);
+        setSummary(summaryRes.data);
+      } catch (err) {
+        console.warn('Failed to refresh upload summary:', err);
+      }
     } catch (err: any) {
-      setUploadError(err?.response?.data?.message || 'Upload failed. Please try again.');
-      setToastMessage('Upload failed. Please try again.');
+      const text = err?.response?.data?.message || 'Upload failed. Please try again.';
+      setMessageByDocumentId((prev) => ({ ...prev, [documentId]: { tone: 'error', text } }));
+      setToastMessage(text);
     } finally {
       setUploadingId(null);
     }
@@ -148,7 +221,7 @@ export default function ServiceDetailPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-[1.8fr_1fr] gap-8">
             <section className="space-y-8">
-              <div className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm shadow-slate-200/40">
+              <Card title="Required Documents">
                 <div className="flex items-start gap-4 mb-6">
                   <div className="h-16 w-16 rounded-3xl bg-[#EEF2FF] flex items-center justify-center text-[#1D4ED8]">
                     <FileText className="w-7 h-7" />
@@ -159,61 +232,107 @@ export default function ServiceDetailPage() {
                   </div>
                 </div>
 
-                <div className="space-y-5">
-                  {loading ? (
-                    <div className="py-12 text-center text-slate-500">Loading required documents...</div>
-                  ) : documents.length === 0 ? (
+                <div className="overflow-hidden rounded-[24px] border border-slate-100">
+                  {loading || documents === null ? <Skeleton height="h-12" className="w-full" /> : documents.length === 0 ? (
                     <div className="py-12 text-center text-slate-500">No required documents found for this service.</div>
                   ) : (
-                    documents.map((document) => {
-                      const currentUpload = uploads.find((upload) => upload.requiredDocument === document._id || (typeof upload.requiredDocument !== 'string' && upload.requiredDocument._id === document._id));
-                      const statusPayload = statusByDocumentId[document._id];
-                      const status = statusPayload?.status || currentUpload?.detectionStatus;
-                      return (
-                        <div key={document._id} className="rounded-[24px] border border-slate-100 bg-slate-50 p-6">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div>
-                              <h2 className="text-xl font-bold text-[#0F172A]">{document.name}</h2>
-                              <p className="mt-2 text-slate-500 text-sm">{document.description}</p>
+                    <div className="divide-y divide-slate-100 bg-white">
+                      <div className="hidden grid-cols-[minmax(0,1.5fr)_150px_170px_190px] gap-4 bg-slate-50 px-6 py-4 text-xs font-extrabold uppercase tracking-wider text-slate-400 lg:grid">
+                        <span>Document name</span>
+                        <span>Formats</span>
+                        <span>Upload status</span>
+                        <span>Detection status</span>
+                      </div>
+                      {documents.map((document) => {
+                        const currentUpload = uploads.find((upload) => getRequiredDocumentId(upload) === document._id);
+                        const statusPayload = statusByDocumentId[document._id];
+                        const status = statusPayload?.status || currentUpload?.detectionStatus;
+                        const detectedType = statusPayload?.documentType || currentUpload?.detectedType;
+                        const message = messageByDocumentId[document._id];
+                        const hasUpload = Boolean(currentUpload || statusPayload);
+
+                        return (
+                          <div key={document._id} className="grid gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1.5fr)_150px_170px_190px] lg:items-center">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#1D4ED8]">
+                                  <FileText className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h2 className="truncate text-base font-bold text-[#0F172A]">{document.name || document._id}</h2>
+
+                                  {(document.description || (document as any).allowedFormats) && (
+                                    <p className="mt-1 text-sm text-slate-500">
+                                      {document.description || (
+                                        Array.isArray((document as any).allowedFormats)
+                                          ? (document as any).allowedFormats.join(', ')
+                                          : ''
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="flex flex-col gap-3 sm:items-end">
-                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#1D61FF] bg-white px-4 py-3 text-sm font-semibold text-[#1D61FF] shadow-sm hover:bg-[#EFF6FF] transition-colors">
-                                {uploadingId === document._id ? 'Uploading...' : 'Upload document'}
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 lg:hidden">Formats</p>
+                              <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+                                {(Array.isArray((document as any).formats) && (document as any).formats.join(', ')) || (Array.isArray((document as any).allowedFormats) && (document as any).allowedFormats.join(', ')) || ACCEPTED_FORMAT_LABEL}
+                              </span>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 lg:hidden">Upload status</p>
+                              <label className="mt-1 inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#1D61FF] bg-white px-4 py-2.5 text-sm font-semibold text-[#1D61FF] shadow-sm transition-colors hover:bg-[#EFF6FF]">
+                                {uploadingId === document._id ? (
+                                  'Uploading...'
+                                ) : (
+                                  <>
+                                    <Upload className="h-4 w-4" />
+                                    {hasUpload ? 'Replace file' : 'Upload'}
+                                  </>
+                                )}
                                 <input
                                   type="file"
-                                  accept="application/pdf,image/png,image/jpeg"
+                                  accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/png,image/jpeg"
                                   className="hidden"
                                   disabled={uploadingId === document._id}
-                                  onChange={(event) => handleFileUpload(document._id, event.target.files?.[0] ?? null)}
+                                  onChange={(event) => {
+                                    handleFileUpload(document._id, event.target.files?.[0] ?? null);
+                                    event.currentTarget.value = '';
+                                  }}
                                 />
                               </label>
+                              {message && (
+                                <p className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${message.tone === 'success' ? 'text-green-700' : 'text-red-600'}`}>
+                                  {message.tone === 'success' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                                  {message.text}
+                                </p>
+                              )}
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 lg:hidden">Detection status</p>
                               {status ? (
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${statusStyleMap[status]}`}
-                                  >
-                                    {status}
-                                  </span>
-                                  {statusPayload?.documentType && (
-                                    <span className="text-xs font-medium text-slate-500">
-                                      {statusPayload.documentType}
-                                    </span>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <Badge status={status} />
+                                  {detectedType && (
+                                    <span className="text-xs font-medium text-slate-500">{detectedType}</span>
                                   )}
                                 </div>
                               ) : (
-                                <div className="text-sm text-slate-500">Waiting for upload.</div>
+                                <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500">
+                                  Pending upload
+                                </span>
                               )}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-
-                {uploadError && <div className="mt-6 rounded-3xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">{uploadError}</div>}
-              </div>
+              </Card>
 
               <div className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center justify-between gap-4 mb-6">
