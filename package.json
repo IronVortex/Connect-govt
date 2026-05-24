@@ -18,6 +18,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^1.14.0",
     "mongoose": "^9.6.0",
     "multer": "^2.1.1",

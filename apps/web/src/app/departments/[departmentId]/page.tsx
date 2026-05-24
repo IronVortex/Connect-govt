@@ -55,10 +55,6 @@ export default function DepartmentDetailPage() {
     setIsLoading(true);
 
     if (!mongoObjectIdPattern.test(departmentId)) {
-      console.error('[Department detail invalid id]', {
-        departmentId,
-        rawDepartmentId: params?.departmentId,
-      });
       setError('Invalid department link. Please choose a department from the list.');
       setIsLoading(false);
       return;
@@ -66,7 +62,6 @@ export default function DepartmentDetailPage() {
 
     const fetchData = async () => {
       try {
-        console.log('[Department detail request]', { departmentId });
         const [deptRes, departmentServices] = await Promise.all([
           apiClient.get(`/departments/${departmentId}`),
           getServicesForDepartment(departmentId),
@@ -74,7 +69,6 @@ export default function DepartmentDetailPage() {
         setDepartment(deptRes.data);
         setServices(departmentServices);
       } catch (err: any) {
-        console.error('[Department detail failed]', err);
         setError(err?.response?.data?.message || 'Unable to load department details.');
       } finally {
         setIsLoading(false);

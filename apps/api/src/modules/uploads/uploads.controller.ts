@@ -44,6 +44,7 @@ export class UploadsController {
     return this.uploadsService.analyzeUpload(
       file.originalname,
       expectedDocumentType,
+      file.mimetype,
     );
   }
 
@@ -73,13 +74,17 @@ export class UploadsController {
 
     const requiredDoc = await this.uploadsService.getRequiredDocument(documentId);
     const expectedType = requiredDoc ? requiredDoc.name : undefined;
-    const analysis = this.uploadsService.analyzeUpload(file.originalname, expectedType);
+    const analysis = this.uploadsService.analyzeUpload(
+      file.originalname,
+      expectedType,
+      file.mimetype,
+    );
 
     const upload = await this.uploadsService.create({
       user: new Types.ObjectId(req.user.id),
       requiredDocument: new Types.ObjectId(documentId),
-      filename: file.filename,
-      path: file.path,
+      filename: file.filename || file.originalname,
+      path: file.path || '',
       mimetype: file.mimetype,
       size: file.size,
       detectedType: analysis.documentType,

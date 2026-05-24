@@ -6,6 +6,7 @@ import {
   UploadedDocumentDocument,
 } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
+import { DetectionService, DetectionStatus } from './detection.service';
 
 @Injectable()
 export class UploadsService {
@@ -14,6 +15,7 @@ export class UploadsService {
     private uploadModel: Model<UploadedDocumentDocument>,
     @InjectModel(RequiredDocument.name)
     private requiredDocumentModel: Model<RequiredDocumentDocument>,
+    private detectionService: DetectionService,
   ) {}
 
   async create(
@@ -74,21 +76,14 @@ export class UploadsService {
   analyzeUpload(
     filename: string,
     expectedDocumentType?: string,
+    mimeType?: string,
     content?: string,
-  ): { documentType: string; status: 'DETECTED' | 'MISMATCH' | 'UNKNOWN' } {
-    const detectedType = this.detectDocumentType(filename, content);
-
-    if (detectedType === 'Unknown') {
-      return { documentType: 'Unknown', status: 'UNKNOWN' };
-    }
-
-    if (
-      expectedDocumentType &&
-      detectedType.toLowerCase() !== expectedDocumentType.toLowerCase()
-    ) {
-      return { documentType: detectedType, status: 'MISMATCH' };
-    }
-
-    return { documentType: detectedType, status: 'DETECTED' };
+  ): { documentType: string; status: DetectionStatus } {
+    return this.detectionService.detect(
+      filename,
+      mimeType,
+      content,
+      expectedDocumentType,
+    );
   }
 }
