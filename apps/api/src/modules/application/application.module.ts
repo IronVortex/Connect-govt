@@ -6,6 +6,7 @@ import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedD
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { User, UserSchema } from '../../models/User';
 import { Application, ApplicationSchema } from '../../models/Application';
+import { Service, ServiceSchema } from '../../models/Service';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { Application, ApplicationSchema } from '../../models/Application';
       { name: RequiredDocument.name, schema: RequiredDocumentSchema },
       { name: User.name, schema: UserSchema },
       { name: Application.name, schema: ApplicationSchema },
+      { name: Service.name, schema: ServiceSchema },
     ]),
   ],
   controllers: [ApplicationController],

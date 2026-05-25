@@ -54,7 +54,7 @@ export default function DashboardPage() {
     };
 
     loadDepartments();
-  }, []);
+  }, [authLoading, user]);
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">

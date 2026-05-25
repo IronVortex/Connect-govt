@@ -82,6 +82,27 @@ export class UploadedDocument {
     maxlength: 160,
   })
   detectedType?: string;
+
+  @Prop({
+    type: Boolean,
+    default: false,
+    index: true,
+  })
+  verified!: boolean;
+
+  @Prop({
+    type: Date,
+    required: false,
+  })
+  expiresAt?: Date;
+
+  @Prop({
+    type: String,
+    trim: true,
+    maxlength: 50,
+    default: 'upload',
+  })
+  source!: string;
 }
 
 export const UploadedDocumentSchema =

@@ -10,6 +10,7 @@ export const APPLICATION_STATUSES = [
   'UNDER_REVIEW',
   'APPROVED',
   'REJECTED',
+  'NEEDS_CORRECTION',
 ] as const;
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
@@ -47,9 +48,14 @@ export class Application {
     type: String,
     unique: true,
     default: () => new Types.ObjectId().toHexString(),
-    index: true,
   })
   appId!: string;
+
+  @Prop({ type: Date })
+  createdAt?: Date;
+
+  @Prop({ type: Date })
+  updatedAt?: Date;
 
   @Prop({
     type: [{ type: Types.ObjectId, ref: 'UploadedDocument' }],
@@ -63,6 +69,9 @@ export class Application {
     maxlength: 1000,
   })
   notes?: string;
+
+  @Prop({ type: Date, required: false })
+  deletedAt?: Date;
 }
 
 export const ApplicationSchema = SchemaFactory.createForClass(Application);

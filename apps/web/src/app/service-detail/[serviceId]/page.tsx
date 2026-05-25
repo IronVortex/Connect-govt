@@ -271,9 +271,13 @@ export default function ServiceDetailPage() {
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                       <h1 className="max-w-3xl text-4xl font-black tracking-tight text-slate-950">{service?.name || 'Service details'}</h1>
-                      <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-                        {service?.description || 'Upload each required document and review the verification status before submission.'}
-                      </p>
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+                        <p className="text-sm text-slate-500">{service?.description || 'Upload each required document and review the verification status before submission.'}</p>
+                        <div className="mt-1 flex items-center gap-4">
+                          <div className="rounded-full bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700 border border-slate-100">{service?.estimatedProcessingTime ?? '7-10 working days'}</div>
+                          <div className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-slate-900 border border-slate-100">{service?.fee ? `₹${service.fee}` : 'Free'}</div>
+                        </div>
+                      </div>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-bold text-slate-500">Completion</p>

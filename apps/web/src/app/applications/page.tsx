@@ -27,7 +27,7 @@ export default function ApplicationsPage() {
       }
     };
     loadSummary();
-  }, []);
+  }, [authLoading, user]);
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
@@ -74,7 +74,7 @@ export default function ApplicationsPage() {
                             <p className="font-semibold text-[#0F172A]">{typeof upload.requiredDocument === 'string' ? upload.filename : upload.requiredDocument.name}</p>
                             <p className="text-sm text-slate-500 mt-1">Status: <span className="font-semibold">{upload.detectionStatus}</span></p>
                           </div>
-                          <span className="text-sm text-slate-400">{new Date(upload.uploadedAt).toLocaleDateString()}</span>
+                          <span className="text-sm text-slate-400">{new Date(upload.createdAt || upload.updatedAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                       </div>
                     ))
@@ -82,15 +82,32 @@ export default function ApplicationsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-slate-100 bg-[#F8FBFF] p-8 shadow-sm shadow-slate-200/40">
-                <h3 className="text-xl font-bold text-[#0F172A] mb-4">Action tips</h3>
-                <ul className="space-y-3 text-slate-600">
-                  {summary.tips.map((tip, index) => (
-                    <li key={index} className="rounded-3xl bg-white border border-slate-100 p-4">
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
+              <div className="space-y-4">
+                <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm shadow-slate-200/40">
+                  <h3 className="text-lg font-bold text-[#0F172A]">Fees & ETA</h3>
+                  <div className="mt-4 grid grid-cols-1 gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-slate-500">Total estimated fee</div>
+                      <div className="text-lg font-extrabold text-[#0F172A]">{summary.totalFee ? `₹${summary.totalFee}` : '—'}</div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-slate-500">Estimated processing time</div>
+                      <div className="text-sm font-semibold text-slate-700">{summary.estimatedProcessingTime}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[32px] border border-slate-100 bg-[#F8FBFF] p-6 shadow-sm shadow-slate-200/40">
+                  <h3 className="text-lg font-bold text-[#0F172A] mb-2">Action tips</h3>
+                  <p className="text-sm text-slate-500 mb-3">Keep an eye on upload statuses — uploads with <strong>Review</strong> need attention before submission.</p>
+                  <ul className="space-y-3 text-slate-600">
+                    {summary.tips.map((tip, index) => (
+                      <li key={index} className="rounded-3xl bg-white border border-slate-100 p-4">
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
           )}

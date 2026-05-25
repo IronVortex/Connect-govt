@@ -36,14 +36,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await apiClient.get('/auth/profile', {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
       setUser({
         id: response.data.id || response.data.sub,
         email: response.data.email,
         name: response.data.name,
-        role: response.data.role
+        role: response.data.role,
       });
     } catch {
       clearAccessToken();
@@ -60,10 +60,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = getAccessToken();
     if (token) {
       await fetchProfile(token);
-    } else {
-      setUser(null);
-      setLoading(false);
+      return;
     }
+
+    try {
+      const response = await apiClient.post('/auth/refresh');
+      const accessToken = response.data?.access_token;
+      if (accessToken) {
+        setAccessToken(accessToken);
+        await fetchProfile(accessToken);
+        return;
+      }
+    } catch {
+      clearAccessToken();
+      setUser(null);
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -71,8 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       fetchProfile(token);
     } else {
-      setUser(null);
-      setLoading(false);
+      void refreshProfile();
     }
   }, [fetchProfile]);
 
@@ -110,25 +122,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetchProfile(access_token);
       router.push('/dashboard');
     } catch (err: any) {
-      setLoading(false);
+      clearAccessToken();
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      await apiClient.post('/auth/register', { name, email, password });
-      
-      // Auto login after registration
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/register', { name, email, password });
       const { access_token } = response.data;
       setAccessToken(access_token);
       await fetchProfile(access_token);
       router.push('/dashboard');
     } catch (err: any) {
-      setLoading(false);
+      clearAccessToken();
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
