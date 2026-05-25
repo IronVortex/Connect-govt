@@ -3,28 +3,28 @@ import { MulterModule } from '@nestjs/platform-express';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
+import { DetectionService } from './detection.service';
 import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { User, UserSchema } from '../../models/User';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
+
+const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
 @Module({
   imports: [
     MulterModule.register({
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          cb(null, `${Date.now()}-${file.originalname}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
-        const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
-        if (!allowed.includes(file.mimetype)) {
-          return cb(new BadRequestException('Invalid file type'), false);
+        if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          return cb(new BadRequestException('Only PDF, PNG, and JPEG files are allowed.'), false);
+        }
+        if (!file.originalname || file.originalname.length > 255) {
+          return cb(new BadRequestException('Invalid file name.'), false);
         }
         cb(null, true);
       },
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
     MongooseModule.forFeature([
       { name: UploadedDocument.name, schema: UploadedDocumentSchema },
@@ -33,7 +33,7 @@ import { diskStorage } from 'multer';
     ]),
   ],
   controllers: [UploadsController],
-  providers: [UploadsService],
+  providers: [UploadsService, DetectionService],
   exports: [UploadsService],
 })
 export class UploadsModule {}

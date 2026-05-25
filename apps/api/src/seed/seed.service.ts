@@ -248,7 +248,7 @@ export class SeedService implements OnModuleInit {
               description: departmentSeed.description,
             },
           },
-          { new: true, upsert: true, setDefaultsOnInsert: true },
+          { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
         );
 
         for (const serviceSeed of departmentSeed.services) {
@@ -262,9 +262,14 @@ export class SeedService implements OnModuleInit {
                 name: serviceSeed.name,
                 description: serviceSeed.description,
                 department: department._id,
+                fee: (serviceSeed as any).fee ?? 250,
+                estimatedProcessingTime:
+                  (serviceSeed as any).estimatedProcessingTime ??
+                  '7-10 working days',
+                priorityLevel: (serviceSeed as any).priorityLevel ?? 0,
               },
             },
-            { new: true, upsert: true, setDefaultsOnInsert: true },
+            { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
           );
 
           for (const documentSeed of serviceSeed.documents) {

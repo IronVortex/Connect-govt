@@ -26,6 +26,15 @@ export class Service {
   })
   description?: string;
 
+  @Prop({ type: Number, default: 0 })
+  fee?: number;
+
+  @Prop({ type: String, trim: true, maxlength: 160, default: '7-10 working days' })
+  estimatedProcessingTime?: string;
+
+  @Prop({ type: Number, default: 0 })
+  priorityLevel?: number;
+
   @Prop({ type: Types.ObjectId, ref: 'Department', required: true, index: true })
   department!: Types.ObjectId;
 }

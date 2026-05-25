@@ -47,7 +47,6 @@ export default function DashboardPage() {
         );
         setServiceCountByDepartment(counts);
       } catch (err: any) {
-        console.error('[Dashboard departments failed]', err);
         setError(err?.response?.data?.message || 'Unable to load departments.');
       } finally {
         setIsLoading(false);
@@ -55,7 +54,7 @@ export default function DashboardPage() {
     };
 
     loadDepartments();
-  }, []);
+  }, [authLoading, user]);
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">

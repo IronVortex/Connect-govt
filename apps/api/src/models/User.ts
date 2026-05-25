@@ -31,6 +31,13 @@ export class User {
 
   @Prop({
     type: String,
+    select: false,
+    required: false,
+  })
+  refreshTokenHash?: string;
+
+  @Prop({
+    type: String,
     trim: true,
     minlength: 2,
     maxlength: 120,
@@ -48,5 +55,3 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-
-UserSchema.index({ email: 1 }, { unique: true });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import apiClient from '../services/apiClient';
 import { getAccessToken, setAccessToken, clearAccessToken } from '../services/auth';
@@ -30,41 +30,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchProfile = async (token: string) => {
+  const isPublicRoute = pathname === '/' || pathname.startsWith('/auth');
+
+  const fetchProfile = useCallback(async (token: string) => {
     try {
-      console.log('[AuthContext] Fetching user profile...');
       const response = await apiClient.get('/auth/profile', {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      console.log('[AuthContext] Profile retrieved successfully:', response.data);
       setUser({
         id: response.data.id || response.data.sub,
         email: response.data.email,
         name: response.data.name,
-        role: response.data.role
+        role: response.data.role,
       });
-    } catch (err: any) {
-      console.error('[AuthContext] Fetch profile failed. Invalid or expired token.', err);
+    } catch {
       clearAccessToken();
       setUser(null);
-      if (!pathname.startsWith('/auth')) {
+      if (!isPublicRoute) {
         router.push('/auth/login');
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [isPublicRoute, router]);
 
   const refreshProfile = async () => {
     const token = getAccessToken();
     if (token) {
       await fetchProfile(token);
-    } else {
-      setUser(null);
-      setLoading(false);
+      return;
     }
+
+    try {
+      const response = await apiClient.post('/auth/refresh');
+      const accessToken = response.data?.access_token;
+      if (accessToken) {
+        setAccessToken(accessToken);
+        await fetchProfile(accessToken);
+        return;
+      }
+    } catch {
+      clearAccessToken();
+      setUser(null);
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -72,61 +84,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       fetchProfile(token);
     } else {
-      console.log('[AuthContext] No access token found in localStorage.');
+      void refreshProfile();
+    }
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
       setUser(null);
       setLoading(false);
-    }
-  }, []);
+      if (!isPublicRoute) {
+        router.push('/auth/login');
+      }
+    };
+
+    window.addEventListener('connect:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('connect:unauthorized', handleUnauthorized);
+  }, [isPublicRoute, router]);
 
   // Protected route redirects
   useEffect(() => {
     if (loading) return;
 
     const isAuthRoute = pathname.startsWith('/auth');
-    if (!user && !isAuthRoute) {
-      console.log(`[AuthContext] Unauthenticated user accessing protected path ${pathname}. Redirecting to login.`);
+    if (!user && !isPublicRoute) {
       router.push('/auth/login');
     } else if (user && isAuthRoute) {
-      console.log(`[AuthContext] Authenticated user accessing auth path ${pathname}. Redirecting to dashboard.`);
       router.push('/dashboard');
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, pathname, router, isPublicRoute]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('[AuthContext] Logging in user:', email);
       const response = await apiClient.post('/auth/login', { email, password });
       const { access_token } = response.data;
       setAccessToken(access_token);
       await fetchProfile(access_token);
       router.push('/dashboard');
     } catch (err: any) {
-      setLoading(false);
+      clearAccessToken();
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('[AuthContext] Registering user:', email);
-      await apiClient.post('/auth/register', { name, email, password });
-      
-      // Auto login after registration
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/register', { name, email, password });
       const { access_token } = response.data;
       setAccessToken(access_token);
       await fetchProfile(access_token);
       router.push('/dashboard');
     } catch (err: any) {
-      setLoading(false);
+      clearAccessToken();
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
-    console.log('[AuthContext] Logging out user.');
     clearAccessToken();
     setUser(null);
     router.push('/auth/login');
