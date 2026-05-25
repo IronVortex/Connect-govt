@@ -6,15 +6,28 @@ export type DepartmentDocument = HydratedDocument<Department> & {
 };
 
 @Schema({
+  collection: 'departments',
   timestamps: true,
 })
 export class Department {
-  @Prop({ type: String, required: true })
+  @Prop({
+    type: String,
+    required: true,
+    trim: true,
+    minlength: 2,
+    maxlength: 120,
+  })
   name!: string;
 
-  @Prop({ type: String })
+  @Prop({
+    type: String,
+    trim: true,
+    maxlength: 1000,
+  })
   description?: string;
 }
 
 export const DepartmentSchema =
   SchemaFactory.createForClass(Department);
+
+DepartmentSchema.index({ name: 1 }, { unique: true });

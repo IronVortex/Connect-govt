@@ -1,4 +1,15 @@
-import { Controller, Post, Body, UseGuards, Request, UnauthorizedException, Get, Inject } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { IsEmail, IsString, MinLength } from 'class-validator';
@@ -29,22 +40,71 @@ export class AuthController {
   constructor(@Inject(AuthService) private authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body: RegisterDto) {
-    return this.authService.register(body.email, body.password, body.name);
+  async register(@Body() body: RegisterDto, @Res({ passthrough: true }) res: Response) {
+    const user = await this.authService.register(body.email, body.password, body.name);
+    const loginResponse = await this.authService.login(user);
+    res.cookie('refresh_token', loginResponse.refresh_token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return { access_token: loginResponse.access_token, user: loginResponse.user };
   }
 
   @Post('login')
-  async login(@Body() body: LoginDto) {
+  async login(
+    @Body() body: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const user = await this.authService.validateUser(body.email, body.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    const loginResponse = await this.authService.login(user);
+    res.cookie('refresh_token', loginResponse.refresh_token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return { access_token: loginResponse.access_token, user: loginResponse.user };
+  }
+
+  @Post('refresh')
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+    const refreshResponse = await this.authService.refreshToken(refreshToken);
+    res.cookie('refresh_token', refreshResponse.refresh_token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return { access_token: refreshResponse.access_token, user: refreshResponse.user };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    await this.authService.logout((req.user as any).id);
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return { success: true };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req: any) {
+  getProfile(@Req() req: any) {
     return req.user;
   }
 }

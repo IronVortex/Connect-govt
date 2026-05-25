@@ -47,7 +47,6 @@ export default function DashboardPage() {
         );
         setServiceCountByDepartment(counts);
       } catch (err: any) {
-        console.error('[Dashboard departments failed]', err);
         setError(err?.response?.data?.message || 'Unable to load departments.');
       } finally {
         setIsLoading(false);
@@ -55,7 +54,7 @@ export default function DashboardPage() {
     };
 
     loadDepartments();
-  }, []);
+  }, [authLoading, user]);
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
@@ -64,7 +63,7 @@ export default function DashboardPage() {
         <Topbar />
         <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
           <div className="mb-10">
-            <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Welcome back, Rohan</h2>
+            <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Welcome back, {user?.name || 'User'}</h2>
             <p className="text-slate-500 text-[15px] font-medium mt-1">Select a department to browse available services.</p>
           </div>
 

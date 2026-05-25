@@ -2,6 +2,12 @@ import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { DocumentsService } from '../documents/documents.service';
 
+interface CreateServiceDto {
+  name: string;
+  description?: string;
+  department: string;
+}
+
 @Controller('services')
 export class ServicesController {
   constructor(
@@ -23,25 +29,15 @@ export class ServicesController {
     );
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.servicesService.findOne(id);
-  }
+
 
   @Get(':id/documents')
   findDocumentsByService(@Param('id') id: string) {
     return this.documentsService.findByService(id);
   }
 
-  @Post()
-  create(
-    @Body()
-    body: {
-      name: string;
-      description?: string;
-      department: string;
-    },
-  ) {
-    return this.servicesService.create(body);
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.servicesService.findOne(id);
   }
 }

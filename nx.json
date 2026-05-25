@@ -1,5 +1,8 @@
 {
   "analytics": true,
+  "cli": {
+    "packageManager": "npm"
+  },
   "plugins": [
     {
       "plugin": "@nx/next/plugin",

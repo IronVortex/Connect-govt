@@ -9,6 +9,9 @@ export interface Service {
   name: string;
   description?: string;
   department: Department | string;
+  fee?: number;
+  estimatedProcessingTime?: string;
+  priorityLevel?: number;
 }
 
 export interface RequiredDocument {
@@ -26,8 +29,11 @@ export interface UploadedDocument {
   mimetype: string;
   size: number;
   detectionStatus: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
-  detectedType: string;
-  uploadedAt: string;
+  detectedType?: string;
+  verified?: boolean;
+  source?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ApplicationSummary {
@@ -37,6 +43,9 @@ export interface ApplicationSummary {
   mismatch: number;
   uploads: UploadedDocument[];
   tips: string[];
+  feesByService?: { serviceId: string; name: string; fee?: number; estimatedProcessingTime?: string }[];
+  totalFee?: number;
+  estimatedProcessingTime?: string;
 }
 
 export interface User {
