@@ -28,8 +28,12 @@ export interface UploadedDocument {
   path: string;
   mimetype: string;
   size: number;
-  detectionStatus: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+  detectionStatus: 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
   detectedType?: string;
+  confidence?: number;
+  extractedText?: string;
+  matchedExpectedType?: string;
+  detectionReasons?: string[];
   verified?: boolean;
   source?: string;
   createdAt?: string;
@@ -38,9 +42,11 @@ export interface UploadedDocument {
 
 export interface ApplicationSummary {
   totalDocuments: number;
+  matched: number;
   detected: number;
+  needsReview: number;
+  mismatched: number;
   unknown: number;
-  mismatch: number;
   uploads: UploadedDocument[];
   tips: string[];
   feesByService?: { serviceId: string; name: string; fee?: number; estimatedProcessingTime?: string }[];

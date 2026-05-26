@@ -12,8 +12,10 @@ export type UploadState = {
   progress: number;
   message?: string;
   tone?: 'success' | 'error';
-  status?: 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+  status?: 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
   detectedType?: string;
+  confidence?: number;
+  reasons?: string[];
 };
 
 interface UploadCardProps {
@@ -39,6 +41,8 @@ export const UploadCard: React.FC<UploadCardProps> = ({
 }) => {
   const status = state?.status || persistedUpload?.detectionStatus;
   const detectedType = state?.detectedType || persistedUpload?.detectedType;
+  const confidence = state?.confidence ?? persistedUpload?.confidence ?? 0;
+  const reasons = state?.reasons ?? persistedUpload?.detectionReasons ?? [];
   const progress = state?.progress ?? (persistedUpload ? 100 : 0);
 
   return (
@@ -109,6 +113,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
                 <p className="text-xs text-slate-500">
                   {persistedUpload ? `${(persistedUpload.size / 1024 / 1024).toFixed(2)} MB` : 'Preparing secure upload'}
                   {detectedType ? ` · Detected as ${detectedType}` : ''}
+                  {confidence > 0 && ` (${confidence}% confidence)`}
                 </p>
               </div>
             </div>
@@ -124,6 +129,20 @@ export const UploadCard: React.FC<UploadCardProps> = ({
               {state.tone === 'error' ? <AlertCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               {state.message}
             </p>
+          )}
+
+          {reasons && reasons.length > 0 && (
+            <div className="mt-4 space-y-2 rounded-lg bg-white p-3">
+              <p className="text-xs font-bold text-slate-700">Detection Details:</p>
+              <ul className="space-y-1">
+                {reasons.map((reason, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="mt-1 inline-block h-1 w-1 rounded-full bg-slate-400" />
+                    {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {persistedUpload && (

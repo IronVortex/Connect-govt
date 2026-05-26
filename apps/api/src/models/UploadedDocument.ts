@@ -3,9 +3,11 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type UploadedDocumentDocument = HydratedDocument<UploadedDocument>;
 export const UPLOAD_DETECTION_STATUSES = [
-  'DETECTED',
-  'MISMATCH',
+  'MATCHED',
+  'MISMATCHED',
   'UNKNOWN',
+  'NEEDS_REVIEW',
+  'DETECTED',
 ] as const;
 export type UploadDetectionStatus =
   (typeof UPLOAD_DETECTION_STATUSES)[number];
@@ -82,6 +84,34 @@ export class UploadedDocument {
     maxlength: 160,
   })
   detectedType?: string;
+
+  @Prop({
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0,
+  })
+  confidence?: number;
+
+  @Prop({
+    type: String,
+    trim: true,
+    maxlength: 5000,
+  })
+  extractedText?: string;
+
+  @Prop({
+    type: String,
+    trim: true,
+    maxlength: 160,
+  })
+  matchedExpectedType?: string;
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  detectionReasons?: string[];
 
   @Prop({
     type: Boolean,

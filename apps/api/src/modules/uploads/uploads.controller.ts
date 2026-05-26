@@ -77,16 +77,20 @@ export class UploadsController {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
+    // First, store the file
+    const storagePath = this.uploadsService.storeFile(file);
+    
+    // Then analyze it
     const requiredDoc = await this.uploadsService.getRequiredDocument(documentId);
     const expectedType = requiredDoc ? requiredDoc.name : undefined;
     const analysis = await this.uploadsService.analyzeUpload(
-      file.originalname,
+      storagePath,
       expectedType,
       file.mimetype,
       file.buffer,
     );
 
-    const storagePath = this.uploadsService.storeFile(file);
+    // Create upload record with comprehensive detection data
     const upload = await this.uploadsService.create({
       user: new Types.ObjectId(req.user.id),
       requiredDocument: new Types.ObjectId(documentId),
@@ -94,11 +98,15 @@ export class UploadsController {
       path: storagePath,
       mimetype: file.mimetype,
       size: file.size,
-      detectedType: analysis.documentType,
+      detectedType: analysis.detectedType,
       detectionStatus: analysis.status,
-      verified: analysis.status === 'DETECTED',
+      confidence: analysis.confidence,
+      extractedText: analysis.extractedText,
+      detectionReasons: analysis.reasons,
+      matchedExpectedType: expectedType,
+      verified: analysis.status === 'MATCHED',
       expiresAt:
-        analysis.status === 'DETECTED'
+        analysis.status === 'MATCHED'
           ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
           : undefined,
       source: 'upload',

@@ -5,7 +5,8 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { UploadedDocument, UploadedDocumentDocument } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
-import { DetectionService, DetectionStatus } from './detection.service';
+import { DocumentDetectionService, DetectionStatus } from './document-detection.service';
+import { DetectionService } from './detection.service';
 import { ConfigService } from '@nestjs/config';
 import { logger } from '../../logger';
 
@@ -20,6 +21,7 @@ export class UploadsService {
     private uploadModel: Model<UploadedDocumentDocument>,
     @InjectModel(RequiredDocument.name)
     private requiredDocumentModel: Model<RequiredDocumentDocument>,
+    private documentDetectionService: DocumentDetectionService,
     private detectionService: DetectionService,
     private configService: ConfigService,
   ) {
@@ -96,20 +98,39 @@ export class UploadsService {
   }
 
   async analyzeUpload(
-    filename: string,
+    filePath: string,
     expectedDocumentType?: string,
     mimeType?: string,
     fileBuffer?: Buffer,
-  ): Promise<{ documentType: string; status: DetectionStatus }> {
+  ): Promise<{
+    detectedType: string;
+    status: DetectionStatus;
+    confidence: number;
+    extractedText: string;
+    reasons: string[];
+  }> {
+    const filename = basename(filePath);
     this.logger.log(`Analyzing upload: filename="${filename}", mimeType="${mimeType}", expectedType="${expectedDocumentType}"`);
 
     let extractedText = '';
     let imageProperties: { width?: number; height?: number; aspect?: number } = {};
 
-    if (fileBuffer && fileBuffer.length > 0) {
+    let buffer = fileBuffer;
+    if (!buffer || buffer.length === 0) {
+      try {
+        const absolutePath = this.getFilePath(filePath);
+        if (existsSync(absolutePath)) {
+          buffer = require('fs').readFileSync(absolutePath);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to read file from path ${filePath}:`, err);
+      }
+    }
+
+    if (buffer && buffer.length > 0) {
       try {
         if (mimeType === 'application/pdf') {
-          const result = await this.extractTextFromPdf(fileBuffer);
+          const result = await this.extractTextFromPdf(buffer);
           extractedText = result.text;
           const { width, height } = result;
           if (width !== undefined && height !== undefined) {
@@ -120,7 +141,7 @@ export class UploadsService {
             };
           }
         } else if (mimeType && mimeType.startsWith('image/')) {
-          const result = await this.processImage(fileBuffer);
+          const result = await this.processImage(buffer);
           extractedText = result.text;
           const { width, height } = result;
           if (width !== undefined && height !== undefined) {
@@ -143,13 +164,21 @@ export class UploadsService {
       .replace(/\s+/g, ' ')
       .trim();
 
-    return this.detectionService.detect(
+    const detection = await this.detectionService.detect(
       filename,
       mimeType,
       normalizedText,
       expectedDocumentType,
       imageProperties,
     );
+
+    return {
+      detectedType: detection.documentType,
+      status: detection.status,
+      confidence: detection.confidence,
+      extractedText: normalizedText.slice(0, 5000),
+      reasons: detection.reasons,
+    };
   }
 
   private async performOcr(buffer: Buffer): Promise<string> {
@@ -267,10 +296,10 @@ export class UploadsService {
     const lower = text.toLowerCase();
 
     if (lower.includes('aadhaar') || lower.includes('aadhar')) {
-      return 'Aadhaar';
+      return 'Aadhaar Card';
     }
     if (lower.includes('pan')) {
-      return 'PAN';
+      return 'PAN Card';
     }
     if (lower.includes('insurance')) {
       return 'Insurance';

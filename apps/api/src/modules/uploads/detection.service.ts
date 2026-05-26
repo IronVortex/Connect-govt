@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
-export type DetectionStatus = 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+export type DetectionStatus = 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
 
 @Injectable()
 export class DetectionService {
@@ -21,7 +21,7 @@ export class DetectionService {
     content?: string,
     expectedType?: string,
     imageProperties?: { width?: number; height?: number; aspect?: number },
-  ): Promise<{ documentType: string; status: DetectionStatus }> {
+  ): Promise<{ documentType: string; status: DetectionStatus; confidence: number; reasons: string[] }> {
     this.logger.log(`Classification request - filename: "${filename}", mimeType: "${mimeType || 'none'}", expectedType: "${expectedType || 'none'}"`);
     if (content) {
       this.logger.debug(`Extracted text preview: "${content.slice(0, 300)}..."`);
@@ -243,55 +243,69 @@ export class DetectionService {
       }
     }
 
-    // Define thresholds
-    const HIGH_CONFIDENCE_THRESHOLD = 45;
-    const POSSIBLE_MATCH_THRESHOLD = 15;
+    const confidence = Math.min(Math.round(highestScore), 100);
+    let status: DetectionStatus = 'UNKNOWN';
+    const reasons: string[] = [];
 
-    let documentType = 'Unknown';
-    let classificationReason = '';
-
-    if (highestScore >= HIGH_CONFIDENCE_THRESHOLD) {
-      documentType = bestType;
-      classificationReason = `High confidence match for ${bestType} (Score: ${highestScore})`;
-    } else if (highestScore >= POSSIBLE_MATCH_THRESHOLD) {
-      // Possible match: check if the expected type has a weak match (score >= POSSIBLE_MATCH_THRESHOLD)
-      // This is our "fallback" system to avoid aggressive UNKNOWN status
-      const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
-      if (expectedDbName && scores[expectedDbName] >= POSSIBLE_MATCH_THRESHOLD) {
-        documentType = expectedDbName;
-        classificationReason = `Weak match fallback to expected type: ${expectedDbName} (Expected Score: ${scores[expectedDbName]}, Highest Score: ${highestScore})`;
+    if (highestScore < 30) {
+      status = 'UNKNOWN';
+      reasons.push('Confidence too low to classify document');
+    } else if (highestScore >= 80) {
+      if (expectedType && bestType.toLowerCase() === expectedType.toLowerCase()) {
+        status = 'MATCHED';
+        reasons.push(`Document matches expected type: ${expectedType}`);
+      } else if (expectedType) {
+        status = 'MISMATCHED';
+        reasons.push(`Expected ${expectedType}, but detected ${bestType}`);
       } else {
-        documentType = bestType;
-        classificationReason = `Moderate confidence match for ${bestType} (Score: ${highestScore})`;
+        status = 'DETECTED';
+        reasons.push(`Document confidently detected as ${bestType}`);
+      }
+    } else if (highestScore >= 40) {
+      // Moderate confidence match: check for expected type fallback
+      const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
+      if (expectedDbName && scores[expectedDbName] >= 15) {
+        status = 'MATCHED';
+        reasons.push(`Document matches expected type via fallback: ${expectedDbName} (Confidence: ${scores[expectedDbName]}%)`);
+        bestType = expectedDbName;
+      } else {
+        status = 'NEEDS_REVIEW';
+        reasons.push(`Document partially identified as ${bestType} - requires review`);
       }
     } else {
-      // No useful extraction/heuristics match -> use OpenAI fallback if key exists
-      if (this.openAiKey) {
-        this.logger.log('Heuristics weak. Running OpenAI fallback...');
-        const aiResult = await this.runAiFallback(filename, mimeType, content, expectedType);
-        if (aiResult && aiResult !== 'Unknown') {
-          // Map AI result to our standard names
-          const mappedType = Object.values(DOC_TYPES).find(val => val.toLowerCase() === aiResult.toLowerCase());
-          if (mappedType) {
-            documentType = mappedType;
-            classificationReason = `OpenAI fallback matched standard type: ${mappedType}`;
-          } else {
-            documentType = aiResult;
-            classificationReason = `OpenAI fallback matched: ${aiResult}`;
-          }
-        }
-      }
-
-      if (documentType === 'Unknown') {
-        classificationReason = `No heuristics or OpenAI matches above thresholds. (Highest Score: ${highestScore})`;
+      // Between 30 and 40: check for expected type fallback
+      const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
+      if (expectedDbName && scores[expectedDbName] >= 15) {
+        status = 'MATCHED';
+        reasons.push(`Document matches expected type via fallback: ${expectedDbName} (Confidence: ${scores[expectedDbName]}%)`);
+        bestType = expectedDbName;
+      } else {
+        status = 'UNKNOWN';
+        reasons.push('Unable to confidently classify document');
       }
     }
 
-    // Compute status
-    const status = this.computeStatus(documentType, expectedType);
-    this.logger.log(`Final Classification -> Type: "${documentType}", Status: "${status}". Reason: ${classificationReason}`);
+    // OpenAI Fallback if score is low and key is configured
+    if (status === 'UNKNOWN' && this.openAiKey) {
+      this.logger.log('Heuristics weak. Running OpenAI fallback...');
+      const aiResult = await this.runAiFallback(filename, mimeType, content, expectedType);
+      if (aiResult && aiResult !== 'Unknown') {
+        const mappedType = Object.values(DOC_TYPES).find(val => val.toLowerCase() === aiResult.toLowerCase());
+        if (mappedType) {
+          bestType = mappedType;
+          status = expectedType && mappedType.toLowerCase() === expectedType.toLowerCase() ? 'MATCHED' : 'MISMATCHED';
+          reasons.push(`OpenAI fallback matched standard type: ${mappedType}`);
+        } else {
+          bestType = aiResult;
+          status = expectedType && aiResult.toLowerCase() === expectedType.toLowerCase() ? 'MATCHED' : 'MISMATCHED';
+          reasons.push(`OpenAI fallback matched: ${aiResult}`);
+        }
+      }
+    }
 
-    return { documentType, status };
+    this.logger.log(`Final Classification -> Type: "${bestType}", Status: "${status}". Confidence: ${confidence}%, Reason: ${reasons.join(', ')}`);
+
+    return { documentType: bestType, status, confidence, reasons };
   }
 
   private async runAiFallback(
@@ -341,11 +355,4 @@ export class DetectionService {
 
     return null;
   }
-
-  private computeStatus(detected: string, expected?: string): DetectionStatus {
-    if (detected === 'Unknown') return 'UNKNOWN';
-    if (!expected) return 'DETECTED';
-    return detected.toLowerCase() === expected.toLowerCase() ? 'DETECTED' : 'MISMATCH';
-  }
 }
-
