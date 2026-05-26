@@ -10,6 +10,7 @@ interface User {
   email: string;
   name?: string;
   role?: string;
+  profileImage?: string;
 }
 
 interface AuthContextType {
@@ -18,7 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -34,16 +35,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = useCallback(async (token: string) => {
     try {
-      const response = await apiClient.get('/auth/profile', {
+      const response = await apiClient.get('/users/profile', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setUser({
-        id: response.data.id || response.data.sub,
+        id: response.data._id || response.data.id || response.data.sub,
         email: response.data.email,
         name: response.data.name,
         role: response.data.role,
+        profileImage: response.data.profileImage,
       });
     } catch {
       clearAccessToken();
@@ -145,10 +147,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    clearAccessToken();
-    setUser(null);
-    router.push('/auth/login');
+  const logout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    } finally {
+      clearAccessToken();
+      setUser(null);
+      router.push('/auth/login');
+    }
   };
 
   if (loading) {

@@ -49,6 +49,7 @@ export class UploadsController {
       file.originalname,
       expectedDocumentType,
       file.mimetype,
+      file.buffer,
     );
   }
 
@@ -82,6 +83,7 @@ export class UploadsController {
       file.originalname,
       expectedType,
       file.mimetype,
+      file.buffer,
     );
 
     const storagePath = this.uploadsService.storeFile(file);

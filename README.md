@@ -69,3 +69,19 @@ The Web UI will be available at [http://localhost:3000](http://localhost:3000) a
 ## Documentation
 
 For more detailed information on the project architecture and setup, refer to [Setup-nx-repo (3).md](./Setup-nx-repo%20(3).md).
+
+## 🤖 Document Verification & OCR Engine
+
+The backend API features a stabilized, robust document classification engine that uses scoring-based heuristics, digital PDF text extraction, and Tesseract OCR to automatically verify citizen documents:
+
+- **Pipeline**:
+  - **Images** &rarr; Direct Tesseract OCR + Aspect Ratio / Dimension analysis using `@napi-rs/canvas`.
+  - **PDFs** &rarr; Digital text layer extraction. If the PDF is scanned (contains no text), it is rendered to an in-memory PNG canvas and analyzed via Tesseract OCR.
+- **Fallback / Confidence System**:
+  - Heuristics map filename keywords, OCR text matches (with regex formatting checks for Aadhaar/PAN), and dimensions.
+  - Scores $\ge 45$ flag a high-confidence match.
+  - Scores between $15$ and $44$ leverage expected type fallbacks to prevent aggressive `UNKNOWN` flags.
+- **Technologies**:
+  - `tesseract.js` for on-device/in-process OCR.
+  - `pdfjs-dist` (v5) dynamically imported ESM for PDF parsing.
+  - `@napi-rs/canvas` for high-performance server-side canvas operations without external native dependencies.

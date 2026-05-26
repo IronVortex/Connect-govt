@@ -3,6 +3,7 @@
 import React from 'react';
 import { Search, Bell, ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import Link from 'next/link';
 
 export const Topbar = () => {
   const { user, logout } = useAuth();
@@ -26,7 +27,7 @@ export const Topbar = () => {
           <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-[#EF4444] rounded-full border-2 border-white"></span>
         </button>
 
-        <div className="flex items-center gap-4 pl-6 border-l border-slate-100 group">
+        <Link href="/settings" className="flex items-center gap-4 pl-6 border-l border-slate-100 group cursor-pointer">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-[#0F172A] leading-tight group-hover:text-[#1D61FF] transition-colors">
               {user?.name || user?.email || 'Guest User'}
@@ -37,12 +38,12 @@ export const Topbar = () => {
           </div>
           <div className="w-11 h-11 rounded-full bg-slate-100 border-2 border-slate-50 overflow-hidden ring-2 ring-transparent group-hover:ring-[#1D61FF]/20 transition-all">
             <img 
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`} 
+              src={user?.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`} 
               alt="User" 
               className="w-full h-full object-cover"
             />
           </div>
-        </div>
+        </Link>
 
         <button 
           onClick={logout}

@@ -43,6 +43,11 @@ export class User {
     maxlength: 120,
   })
   name?: string;
+  @Prop({
+    type: String,
+    required: false,
+  })
+  profileImage?: string;
 
   @Prop({
     type: String,
