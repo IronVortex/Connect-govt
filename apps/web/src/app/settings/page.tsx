@@ -15,7 +15,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ShieldCheck,
-  BadgeCheck
+  BadgeCheck,
+  Trash2
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -76,6 +77,13 @@ export default function SettingsPage() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleDeletePhoto = () => {
+    setProfileImage('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Submit Profile Changes
@@ -200,6 +208,16 @@ export default function SettingsPage() {
                       <p className="text-xs text-slate-400 mt-2.5">
                         Allowed JPG, PNG or GIF. Max size 2MB.
                       </p>
+                      {profileImage && (
+                        <button
+                          type="button"
+                          onClick={handleDeletePhoto}
+                          className="mt-3 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 transition-all duration-150 flex items-center gap-1.5 mx-auto sm:mx-0 active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete Photo
+                        </button>
+                      )}
                     </div>
                     
                     <input 
