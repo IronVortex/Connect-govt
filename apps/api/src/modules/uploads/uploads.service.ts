@@ -5,12 +5,13 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { UploadedDocument, UploadedDocumentDocument } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
-import { DetectionService, DetectionStatus } from './detection.service';
+import { DocumentDetectionService, DetectionStatus } from './document-detection.service';
 import { ConfigService } from '@nestjs/config';
 import { logger } from '../../logger';
 
 @Injectable()
 export class UploadsService {
+  private readonly logger = new Logger(UploadsService.name);
   private readonly storageRoot: string;
   private readonly storagePrefix = 'uploads/secure';
 
@@ -19,7 +20,7 @@ export class UploadsService {
     private uploadModel: Model<UploadedDocumentDocument>,
     @InjectModel(RequiredDocument.name)
     private requiredDocumentModel: Model<RequiredDocumentDocument>,
-    private detectionService: DetectionService,
+    private documentDetectionService: DocumentDetectionService,
     private configService: ConfigService,
   ) {
     this.storageRoot = this.configService.get<string>('UPLOAD_STORAGE_PATH') || join(process.cwd(), 'uploads', 'secure');
@@ -95,27 +96,40 @@ export class UploadsService {
   }
 
   async analyzeUpload(
-    filename: string,
+    filePath: string,
     expectedDocumentType?: string,
     mimeType?: string,
-    content?: string,
-  ): Promise<{ documentType: string; status: DetectionStatus }> {
-    return this.detectionService.detect(
-      filename,
-      mimeType,
-      content,
+  ): Promise<{
+    detectedType: string;
+    status: DetectionStatus;
+    confidence: number;
+    extractedText: string;
+    reasons: string[];
+  }> {
+    const absolutePath = this.getFilePath(filePath);
+    const result = await this.documentDetectionService.detectDocument(
+      absolutePath,
+      mimeType || 'application/pdf',
       expectedDocumentType,
     );
+
+    return {
+      detectedType: result.detectedType,
+      status: result.status,
+      confidence: result.confidence,
+      extractedText: result.extractedText,
+      reasons: result.reasons,
+    };
   }
 
   private getTypeFromText(text: string): string | null {
     const lower = text.toLowerCase();
 
     if (lower.includes('aadhaar') || lower.includes('aadhar')) {
-      return 'Aadhaar';
+      return 'Aadhaar Card';
     }
     if (lower.includes('pan')) {
-      return 'PAN';
+      return 'PAN Card';
     }
     if (lower.includes('insurance')) {
       return 'Insurance';
