@@ -55,6 +55,10 @@ export default function SettingsPage() {
 
   // Danger Zone States
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Active Applications state
+  const [activeApplications, setActiveApplications] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,6 +88,13 @@ export default function SettingsPage() {
       setDob(user.dob || '');
       setNationality(user.nationality || 'indian');
       setAddress(user.address || '');
+
+      // Fetch active applications count
+      apiClient.get('/applications').then((res) => {
+        const apps = res.data || [];
+        const active = apps.filter((a: any) => !['APPROVED', 'REJECTED'].includes(a.status));
+        setActiveApplications(active.length);
+      }).catch(console.error);
     }
   }, [user]);
 
@@ -471,7 +482,7 @@ export default function SettingsPage() {
                 <div className="space-y-6">
                   <div className="bg-slate-50/55 rounded-2xl p-6 border border-slate-100 flex flex-col justify-between sm:flex-row sm:items-center gap-6">
                     <div>
-                      <div className="text-[32px] font-extrabold text-[#1D61FF] leading-none">2</div>
+                      <div className="text-[32px] font-extrabold text-[#1D61FF] leading-none">{activeApplications}</div>
                       <div className="text-[15px] font-bold text-[#0F172A] mt-2">Active Applications</div>
                       <p className="text-slate-400 text-xs mt-1">Last updated: today</p>
                     </div>
@@ -637,18 +648,28 @@ export default function SettingsPage() {
                     <div className="flex gap-2 w-full sm:w-auto">
                       <button
                         type="button"
-                        onClick={() => {
-                          // Demo dismissal
-                          setShowDeleteConfirm(false);
+                        onClick={async () => {
+                          setIsDeleting(true);
+                          try {
+                            await apiClient.delete('/users/profile');
+                            window.location.href = '/auth/login';
+                          } catch (err: any) {
+                            console.error('Failed to delete account', err);
+                            setIsDeleting(false);
+                            setShowDeleteConfirm(false);
+                            alert('Failed to delete account. Please try again.');
+                          }
                         }}
-                        className="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors text-center"
+                        disabled={isDeleting}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors text-center disabled:opacity-60"
                       >
-                        Yes, delete
+                        {isDeleting ? 'Deleting...' : 'Yes, delete'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(false)}
-                        className="flex-1 sm:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors text-center"
+                        disabled={isDeleting}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors text-center disabled:opacity-60"
                       >
                         Cancel
                       </button>

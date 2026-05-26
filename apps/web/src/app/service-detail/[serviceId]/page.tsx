@@ -10,13 +10,15 @@ import {
   ChevronLeft,
   Clock3,
   CloudUpload,
+  ExternalLink,
   FileText,
   Loader2,
+  Send,
   ShieldCheck,
   Sparkles,
   X,
 } from 'lucide-react';
-import { ApplicationSummary, RequiredDocument, Service, UploadedDocument } from '@connect/types';
+import { Application, ApplicationSummary, RequiredDocument, Service, UploadedDocument } from '@connect/types';
 import { Badge } from '../../../components/Badge';
 import { UploadCard } from '../../../components/UploadCard';
 import { Sidebar } from '../../../components/Sidebar';
@@ -80,6 +82,11 @@ export default function ServiceDetailPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [error, setError] = useState('');
 
+  // Application state
+  const [application, setApplication] = useState<Application | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const loadUserUploadState = useCallback(async () => {
     if (!user) {
       setUploads([]);
@@ -134,9 +141,62 @@ export default function ServiceDetailPage() {
     };
   }, [serviceId]);
 
+  // Load existing application for this service
+  const loadApplication = useCallback(async () => {
+    if (!user || !serviceId) return;
+    try {
+      const res = await apiClient.get<Application[]>('/applications');
+      const apps: Application[] = res.data ?? [];
+      const existing = apps.find((a) => {
+        const svcId = typeof a.service === 'string' ? a.service : a.service._id;
+        return svcId === serviceId && !a.deletedAt;
+      });
+      setApplication(existing ?? null);
+    } catch {
+      // silently fail — application creation still works
+    }
+  }, [user, serviceId]);
+
   useEffect(() => {
-    if (!authLoading) void loadUserUploadState();
-  }, [authLoading, loadUserUploadState]);
+    if (!authLoading) {
+      void loadUserUploadState();
+      void loadApplication();
+    }
+  }, [authLoading, loadUserUploadState, loadApplication]);
+
+  // Create application (DRAFT) then submit it
+  const handleSubmitApplication = async () => {
+    if (!user) {
+      setSubmitMessage({ type: 'error', text: 'Please sign in to submit an application.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitMessage(null);
+    try {
+      let app = application;
+
+      // Step 1: create if not already exists
+      if (!app) {
+        const createRes = await apiClient.post<Application>('/applications', { serviceId });
+        app = createRes.data;
+        setApplication(app);
+      }
+
+      // Step 2: submit (DRAFT → SUBMITTED)
+      if (app.status === 'DRAFT' || app.status === 'NEEDS_CORRECTION') {
+        const updateRes = await apiClient.put<Application>(`/applications/${app._id}`, { status: 'SUBMITTED' });
+        app = updateRes.data;
+        setApplication(app);
+      }
+
+      setSubmitMessage({ type: 'success', text: `Application ${app.appId} submitted successfully!` });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to submit application. Please try again.';
+      setSubmitMessage({ type: 'error', text: msg });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // clear transient upload state when user logs out
   useEffect(() => {
@@ -356,6 +416,7 @@ export default function ServiceDetailPage() {
           </section>
 
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
+            {/* Upload progress card */}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
               <div className="flex items-center justify-between">
                 <div>
@@ -379,6 +440,7 @@ export default function ServiceDetailPage() {
                   { label: 'Upload documents', done: completion.uploaded > 0 },
                   { label: 'AI verification', done: (summary?.detected ?? 0) > 0 || completion.percent === 100 },
                   { label: 'Ready for review', done: completion.percent === 100 },
+                  { label: 'Application submitted', done: application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' },
                 ].map((step) => (
                   <div key={step.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', step.done ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400')}>
@@ -388,8 +450,67 @@ export default function ServiceDetailPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Submit / status block */}
+              <div className="mt-6">
+                {application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' ? (
+                  <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center space-y-2">
+                    <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-600" />
+                    <p className="text-sm font-bold text-emerald-800">Application Submitted</p>
+                    <p className="text-xs text-emerald-600 font-mono font-semibold">{application.appId}</p>
+                    <Link
+                      href="/applications"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:underline"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View in My Applications
+                    </Link>
+                  </div>
+                ) : application?.status === 'REJECTED' ? (
+                  <div className="rounded-2xl bg-red-50 border border-red-100 p-4 text-center space-y-1">
+                    <p className="text-sm font-bold text-red-800">Application Rejected</p>
+                    <p className="text-xs text-red-600">Please correct your documents and resubmit.</p>
+                    <button
+                      onClick={handleSubmitApplication}
+                      disabled={isSubmitting}
+                      className="mt-2 w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-60"
+                    >
+                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Resubmit Application
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSubmitApplication}
+                    disabled={isSubmitting || completion.uploaded === 0}
+                    className="w-full py-3 rounded-2xl bg-[#1D61FF] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:shadow-none"
+                  >
+                    {isSubmitting ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
+                    ) : (
+                      <><Send className="h-4 w-4" /> Submit Application</>
+                    )}
+                  </button>
+                )}
+
+                {completion.uploaded === 0 && !application && (
+                  <p className="mt-2 text-center text-xs text-slate-400 font-medium">Upload at least one document to submit</p>
+                )}
+
+                {submitMessage && (
+                  <div className={`mt-3 flex items-start gap-2 rounded-xl p-3 text-xs font-semibold ${
+                    submitMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
+                  }`}>
+                    {submitMessage.type === 'success'
+                      ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                      : <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />}
+                    {submitMessage.text}
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Verification summary card */}
             <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">Verification summary</p>
               <div className="mt-5 grid grid-cols-3 gap-3">

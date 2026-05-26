@@ -8,6 +8,19 @@ import Link from 'next/link';
 export const Topbar = () => {
   const { user, logout } = useAuth();
 
+  const avatarSrc = user?.profileImage || (() => {
+    if (user?.gender === 'male') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Male&style=circle';
+    }
+    if (user?.gender === 'female') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Female&style=circle';
+    }
+    if (user?.gender === 'other' || user?.gender === 'prefer_not') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Neutral&style=circle';
+    }
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`;
+  })();
+
   return (
     <header className="h-[80px] border-b border-slate-100 bg-white sticky top-0 z-30 flex items-center justify-between px-8 w-full">
       <div className="flex-1 max-w-xl">
@@ -38,7 +51,7 @@ export const Topbar = () => {
           </div>
           <div className="w-11 h-11 rounded-full bg-slate-100 border-2 border-slate-50 overflow-hidden ring-2 ring-transparent group-hover:ring-[#1D61FF]/20 transition-all">
             <img 
-              src={user?.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`} 
+              src={avatarSrc} 
               alt="User" 
               className="w-full h-full object-cover"
             />

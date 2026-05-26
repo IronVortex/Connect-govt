@@ -99,4 +99,13 @@ export class UsersService {
     user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
   }
+
+  async deleteAccount(userId: string): Promise<void> {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    // We could soft-delete or hard-delete here. For now, hard delete.
+    await this.userModel.findByIdAndDelete(userId).exec();
+  }
 }

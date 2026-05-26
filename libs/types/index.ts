@@ -61,3 +61,22 @@ export interface User {
   role: string;
 }
 
+export type ApplicationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'NEEDS_CORRECTION';
+
+export interface Application {
+  _id: string;
+  appId: string;
+  service: Service | string;
+  status: ApplicationStatus;
+  notes?: string;
+  uploadedDocuments?: UploadedDocument[] | string[];
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+}
