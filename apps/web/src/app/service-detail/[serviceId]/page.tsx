@@ -30,7 +30,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_FORMAT_LABEL = 'JPG, PNG, PDF';
 
-type DetectionStatus = 'DETECTED' | 'MISMATCH' | 'UNKNOWN';
+type DetectionStatus = 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
 type UploadState = {
   fileName?: string;
   progress: number;
@@ -38,6 +38,8 @@ type UploadState = {
   tone?: 'success' | 'error';
   status?: DetectionStatus;
   detectedType?: string;
+  confidence?: number;
+  reasons?: string[];
 };
 
 function getRequiredDocumentId(upload: UploadedDocument) {
@@ -49,10 +51,17 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function normalizeUploadResponse(data: any): { status: DetectionStatus; detectedType: string } {
+function normalizeUploadResponse(data: any): { 
+  status: DetectionStatus; 
+  detectedType: string;
+  confidence?: number;
+  reasons?: string[];
+} {
   return {
     status: data?.detectionStatus || data?.status || 'UNKNOWN',
     detectedType: data?.detectedType || data?.documentType || 'Unknown',
+    confidence: data?.confidence,
+    reasons: data?.detectionReasons,
   };
 }
 
@@ -207,6 +216,24 @@ export default function ServiceDetailPage() {
       });
 
       const payload = normalizeUploadResponse(response.data);
+      
+      const getMessageForStatus = (status: DetectionStatus, confidence?: number): string => {
+        switch (status) {
+          case 'MATCHED':
+            return `✓ Verified! Document matches expected type (${confidence}% confidence)`;
+          case 'DETECTED':
+            return `✓ Document detected and saved (${confidence}% confidence)`;
+          case 'MISMATCHED':
+            return `Document detected but doesn't match expected type. Please review.`;
+          case 'NEEDS_REVIEW':
+            return `Document partially recognized. Manual review recommended (${confidence}% confidence).`;
+          case 'UNKNOWN':
+            return 'Document could not be identified. Please upload a clearer image.';
+          default:
+            return 'Upload complete.';
+        }
+      };
+
       setUploadStateByDocumentId((prev) => ({
         ...prev,
         [documentId]: {
@@ -214,8 +241,10 @@ export default function ServiceDetailPage() {
           progress: 100,
           status: payload.status,
           detectedType: payload.detectedType,
-          tone: payload.status === 'MISMATCH' ? 'error' : 'success',
-          message: payload.status === 'MISMATCH' ? 'Uploaded, but the detected document type needs review.' : 'Uploaded and verified.',
+          confidence: payload.confidence,
+          reasons: payload.reasons,
+          tone: ['MATCHED', 'DETECTED'].includes(payload.status) ? 'success' : 'error',
+          message: getMessageForStatus(payload.status, payload.confidence),
         },
       }));
       await loadUserUploadState();
@@ -366,7 +395,7 @@ export default function ServiceDetailPage() {
               <div className="mt-5 grid grid-cols-3 gap-3">
                 {[
                   { label: 'Verified', value: summary?.detected ?? 0 },
-                  { label: 'Review', value: summary?.mismatch ?? 0 },
+                  { label: 'Review', value: summary?.mismatched ?? 0 },
                   { label: 'Unknown', value: summary?.unknown ?? 0 },
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl bg-white/10 p-3 text-center">

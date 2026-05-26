@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@connect/types": [
+        "C:/MY PROJECTS/internship/connect-govt/libs/types/index.ts"
+      ]
+    }
+  },
+  "extends": "..\\..\\..\\..\\apps\\api\\tsconfig.app.json"
+}

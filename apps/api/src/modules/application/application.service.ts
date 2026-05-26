@@ -20,9 +20,11 @@ export class ApplicationService {
       .exec();
 
     const total = uploads.length;
+    const matched = uploads.filter((item) => item.detectionStatus === 'MATCHED').length;
     const detected = uploads.filter((item) => item.detectionStatus === 'DETECTED').length;
+    const needsReview = uploads.filter((item) => item.detectionStatus === 'NEEDS_REVIEW').length;
+    const mismatched = uploads.filter((item) => item.detectionStatus === 'MISMATCHED').length;
     const unknown = uploads.filter((item) => item.detectionStatus === 'UNKNOWN').length;
-    const mismatch = uploads.filter((item) => item.detectionStatus === 'MISMATCH').length;
 
     const feesMap: Record<string, { serviceId: string; name: string; fee?: number; estimatedProcessingTime?: string }> = {};
 
@@ -58,14 +60,17 @@ export class ApplicationService {
 
     return {
       totalDocuments: total,
+      matched,
       detected,
+      needsReview,
+      mismatched,
       unknown,
-      mismatch,
       uploads,
       tips: [
-        'Upload clear scans or photos of your documents.',
-        'Use file names that match the document type for faster detection.',
-        'Review status after every upload to ensure all documents are accepted.',
+        'Upload clear, high-contrast scans or photos of your documents.',
+        'Ensure documents are well-lit and all text is readable.',
+        'Documents marked "Review" need your attention before final submission.',
+        'Use original/official documents rather than photocopies for better detection.',
       ],
       feesByService,
       totalFee,
