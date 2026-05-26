@@ -51,6 +51,30 @@ export class User {
 
   @Prop({
     type: String,
+    required: false,
+  })
+  gender?: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  dob?: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  nationality?: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  address?: string;
+
+  @Prop({
+    type: String,
     enum: USER_ROLES,
     default: 'user',
     required: true,

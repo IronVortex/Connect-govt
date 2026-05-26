@@ -27,6 +27,10 @@ export class UsersService {
     name: string,
     email: string,
     profileImage?: string,
+    gender?: string,
+    dob?: string,
+    nationality?: string,
+    address?: string,
   ): Promise<User> {
     const user = await this.userModel.findById(userId).exec();
     if (!user) {
@@ -47,6 +51,22 @@ export class UsersService {
 
     if (profileImage !== undefined) {
       user.profileImage = profileImage;
+    }
+
+    if (gender !== undefined) {
+      user.gender = gender;
+    }
+
+    if (dob !== undefined) {
+      user.dob = dob;
+    }
+
+    if (nationality !== undefined) {
+      user.nationality = nationality;
+    }
+
+    if (address !== undefined) {
+      user.address = address;
     }
 
     await user.save();

@@ -19,7 +19,8 @@ import {
   Trash2,
   Bell,
   Briefcase,
-  ShieldAlert
+  ShieldAlert,
+  Calendar
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -29,6 +30,10 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [profileImage, setProfileImage] = useState('');
+  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState('');
+  const [nationality, setNationality] = useState('indian');
+  const [address, setAddress] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -53,11 +58,32 @@ export default function SettingsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const avatarSrc = (() => {
+    if (gender === 'male') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Male&style=circle';
+    }
+    if (gender === 'female') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Female&style=circle';
+    }
+    if (gender === 'other' || gender === 'prefer_not') {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Neutral&style=circle';
+    }
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`;
+  })();
+
+  const age = dob 
+    ? Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) 
+    : null;
+
   useEffect(() => {
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
       setProfileImage(user.profileImage || '');
+      setGender(user.gender || '');
+      setDob(user.dob || '');
+      setNationality(user.nationality || 'indian');
+      setAddress(user.address || '');
     }
   }, [user]);
 
@@ -106,7 +132,11 @@ export default function SettingsPage() {
       await apiClient.put('/users/profile', {
         name,
         email,
-        profileImage
+        profileImage,
+        gender,
+        dob,
+        nationality,
+        address
       });
       setProfileMessage({ type: 'success', text: 'Profile updated successfully!' });
       await refreshProfile();
@@ -190,7 +220,7 @@ export default function SettingsPage() {
                           />
                         ) : (
                           <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`} 
+                            src={avatarSrc} 
                             alt="Avatar" 
                             className="w-full h-full object-cover"
                           />
@@ -291,6 +321,75 @@ export default function SettingsPage() {
                           className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[14px] font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="gender">
+                        Gender
+                      </label>
+                      <select
+                        id="gender"
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[14px] font-medium focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer_not">Prefer not to say</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="dob">
+                        Date of Birth
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="date"
+                          id="dob"
+                          value={dob}
+                          onChange={(e) => setDob(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[14px] font-medium focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+                        />
+                      </div>
+                      {dob && age !== null && age >= 0 && (
+                        <p className="text-xs text-slate-400 mt-1.5 font-medium">
+                          Age: {age} years
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="nationality">
+                        Nationality
+                      </label>
+                      <select
+                        id="nationality"
+                        value={nationality}
+                        onChange={(e) => setNationality(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[14px] font-medium focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all"
+                      >
+                        <option value="indian">Indian</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="address">
+                        Address
+                      </label>
+                      <textarea
+                        id="address"
+                        rows={3}
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Enter your residential address"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-[14px] font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 transition-all resize-none"
+                      />
                     </div>
                   </div>
 

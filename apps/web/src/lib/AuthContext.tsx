@@ -11,6 +11,10 @@ interface User {
   name?: string;
   role?: string;
   profileImage?: string;
+  gender?: string;
+  dob?: string;
+  nationality?: string;
+  address?: string;
 }
 
 interface AuthContextType {
@@ -46,6 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: response.data.name,
         role: response.data.role,
         profileImage: response.data.profileImage,
+        gender: response.data.gender,
+        dob: response.data.dob,
+        nationality: response.data.nationality,
+        address: response.data.address,
       });
     } catch {
       clearAccessToken();

@@ -16,13 +16,25 @@ export class UsersController {
   @Put('profile')
   async updateProfile(
     @Request() req: any,
-    @Body() body: { name: string; email: string; profileImage?: string },
+    @Body() body: { 
+      name: string; 
+      email: string; 
+      profileImage?: string;
+      gender?: string;
+      dob?: string;
+      nationality?: string;
+      address?: string;
+    },
   ) {
     return this.usersService.updateProfile(
       req.user.id,
       body.name,
       body.email,
       body.profileImage,
+      body.gender,
+      body.dob,
+      body.nationality,
+      body.address,
     );
   }
 
