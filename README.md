@@ -4,8 +4,18 @@ Connect-Gov is a modern monorepo application built with **Nx**, featuring a **Ne
 
 ## Project Structure
 
-- **`apps/web`**: Frontend application built with Next.js, Tailwind CSS, and shadcn/ui.
-- **`apps/api`**: Backend API built with NestJS/Express and Mongoose (MongoDB).
+This project is organized as an **Nx Monorepo**:
+
+### Applications (`apps/`)
+- **`apps/web`**: Frontend web application built with Next.js, Tailwind CSS, and shadcn/ui.
+- **`apps/api`**: Backend API built with NestJS (Express framework) and Mongoose (MongoDB).
+
+### Shared Libraries (`libs/`)
+- **`libs/types`**: Shared TypeScript definitions, interfaces, and types (mapped to `@connect/types` in tsconfig).
+- **`libs/ui`**: Shared UI component library.
+- **`libs/utils`**: Shared utility and helper functions.
+
+### Other Folders
 - **`docs`**: Project documentation and setup guides.
 
 ## Prerequisites

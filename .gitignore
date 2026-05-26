@@ -52,3 +52,11 @@ get-shit-done-for-antigravity/
 
 .claude/worktrees
 .claude/settings.local.json
+
+# Local Dev and Uploads
+uploads/
+scratch/
+tmp/
+eng.traineddata
+test_api.js
+*.log

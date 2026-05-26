@@ -5,8 +5,7 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { UploadedDocument, UploadedDocumentDocument } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
-import { DocumentDetectionService, DetectionStatus } from './document-detection.service';
-import { DetectionService } from './detection.service';
+import { DetectionService, DetectionStatus } from './detection.service';
 import { ConfigService } from '@nestjs/config';
 import { logger } from '../../logger';
 
@@ -21,7 +20,6 @@ export class UploadsService {
     private uploadModel: Model<UploadedDocumentDocument>,
     @InjectModel(RequiredDocument.name)
     private requiredDocumentModel: Model<RequiredDocumentDocument>,
-    private documentDetectionService: DocumentDetectionService,
     private detectionService: DetectionService,
     private configService: ConfigService,
   ) {

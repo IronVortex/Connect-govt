@@ -247,38 +247,32 @@ export class DetectionService {
     let status: DetectionStatus = 'UNKNOWN';
     const reasons: string[] = [];
 
-    if (highestScore < 30) {
-      status = 'UNKNOWN';
-      reasons.push('Confidence too low to classify document');
-    } else if (highestScore >= 80) {
-      if (expectedType && bestType.toLowerCase() === expectedType.toLowerCase()) {
-        status = 'MATCHED';
-        reasons.push(`Document matches expected type: ${expectedType}`);
-      } else if (expectedType) {
-        status = 'MISMATCHED';
-        reasons.push(`Expected ${expectedType}, but detected ${bestType}`);
-      } else {
-        status = 'DETECTED';
-        reasons.push(`Document confidently detected as ${bestType}`);
-      }
-    } else if (highestScore >= 40) {
-      // Moderate confidence match: check for expected type fallback
-      const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
-      if (expectedDbName && scores[expectedDbName] >= 15) {
-        status = 'MATCHED';
-        reasons.push(`Document matches expected type via fallback: ${expectedDbName} (Confidence: ${scores[expectedDbName]}%)`);
-        bestType = expectedDbName;
-      } else {
+    // Check if the expected type has at least a weak match (score >= 15)
+    // This is our primary fallback system to verify uploads under correct slots
+    const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
+    if (expectedDbName && scores[expectedDbName] >= 15) {
+      status = 'MATCHED';
+      reasons.push(`Document matches expected type via fallback: ${expectedDbName} (Confidence: ${scores[expectedDbName]}%)`);
+      bestType = expectedDbName;
+    } else {
+      // Normal classification based on highestScore
+      if (highestScore < 30) {
+        status = 'UNKNOWN';
+        reasons.push('Confidence too low to classify document');
+      } else if (highestScore >= 80) {
+        if (expectedType && bestType.toLowerCase() === expectedType.toLowerCase()) {
+          status = 'MATCHED';
+          reasons.push(`Document matches expected type: ${expectedType}`);
+        } else if (expectedType) {
+          status = 'MISMATCHED';
+          reasons.push(`Expected ${expectedType}, but detected ${bestType}`);
+        } else {
+          status = 'DETECTED';
+          reasons.push(`Document confidently detected as ${bestType}`);
+        }
+      } else if (highestScore >= 40) {
         status = 'NEEDS_REVIEW';
         reasons.push(`Document partially identified as ${bestType} - requires review`);
-      }
-    } else {
-      // Between 30 and 40: check for expected type fallback
-      const expectedDbName = Object.values(DOC_TYPES).find(val => val.toLowerCase() === lowerExpected);
-      if (expectedDbName && scores[expectedDbName] >= 15) {
-        status = 'MATCHED';
-        reasons.push(`Document matches expected type via fallback: ${expectedDbName} (Confidence: ${scores[expectedDbName]}%)`);
-        bestType = expectedDbName;
       } else {
         status = 'UNKNOWN';
         reasons.push('Unable to confidently classify document');
