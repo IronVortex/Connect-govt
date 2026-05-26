@@ -16,7 +16,10 @@ import {
   AlertCircle, 
   ShieldCheck,
   BadgeCheck,
-  Trash2
+  Trash2,
+  Bell,
+  Briefcase,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -40,6 +43,13 @@ export default function SettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Notification Preferences States
+  const [appStatusUpdates, setAppStatusUpdates] = useState(true);
+  const [newServiceAnnouncements, setNewServiceAnnouncements] = useState(false);
+
+  // Danger Zone States
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -295,6 +305,86 @@ export default function SettingsPage() {
                   </div>
                 </form>
               </div>
+
+              {/* Notification Preferences */}
+              <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
+                  <Bell className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-xl font-bold text-[#0F172A]">Notification Preferences</h3>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Row 1 */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[15px] font-bold text-[#0F172A] cursor-pointer" onClick={() => setAppStatusUpdates(!appStatusUpdates)}>
+                        Application status updates
+                      </label>
+                      <p className="text-slate-500 text-xs font-medium">Notify when document status changes</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAppStatusUpdates(!appStatusUpdates)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        appStatusUpdates ? 'bg-blue-600' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          appStatusUpdates ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Row 2 */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[15px] font-bold text-[#0F172A] cursor-pointer" onClick={() => setNewServiceAnnouncements(!newServiceAnnouncements)}>
+                        New service announcements
+                      </label>
+                      <p className="text-slate-500 text-xs font-medium">Notify about new govt services</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewServiceAnnouncements(!newServiceAnnouncements)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        newServiceAnnouncements ? 'bg-blue-600' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          newServiceAnnouncements ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Linked Applications Summary Card */}
+              <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
+                  <Briefcase className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-xl font-bold text-[#0F172A]">Your Applications</h3>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-slate-50/55 rounded-2xl p-6 border border-slate-100 flex flex-col justify-between sm:flex-row sm:items-center gap-6">
+                    <div>
+                      <div className="text-[32px] font-extrabold text-[#1D61FF] leading-none">2</div>
+                      <div className="text-[15px] font-bold text-[#0F172A] mt-2">Active Applications</div>
+                      <p className="text-slate-400 text-xs mt-1">Last updated: today</p>
+                    </div>
+                    <a
+                      href="/applications"
+                      className="px-5 py-3 bg-[#1D61FF] hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-sm text-center transition-all duration-150 active:scale-[0.98] inline-block shrink-0"
+                    >
+                      View All Applications
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right Column: Security (Password Change) */}
@@ -412,6 +502,60 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+
+          {/* Danger Zone Section */}
+          <div className="mt-8">
+            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
+              <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-5">
+                <ShieldAlert className="w-5 h-5 text-[#DC2626]" />
+                <h3 className="text-xl font-bold text-[#DC2626]">Danger Zone</h3>
+              </div>
+
+              <div className="border border-red-200 bg-red-50/50 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1">
+                  <h4 className="text-[15px] font-bold text-red-950">Delete Account</h4>
+                  <p className="text-red-700/80 text-sm font-medium">
+                    Permanently delete your account and all associated data. This action cannot be undone.
+                  </p>
+                </div>
+
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-5 py-3 border border-red-500 text-red-600 bg-white hover:bg-red-50 font-bold text-sm rounded-xl shadow-sm transition-all duration-150 active:scale-[0.98] text-center"
+                  >
+                    Delete Account
+                  </button>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/80 border border-red-100 rounded-xl p-3 shadow-sm shrink-0">
+                    <span className="text-xs font-bold text-red-850 px-1">
+                      Are you sure? This will delete all your data.
+                    </span>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Demo dismissal
+                          setShowDeleteConfirm(false);
+                        }}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors text-center"
+                      >
+                        Yes, delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors text-center"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
