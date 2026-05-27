@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, extname, basename } from 'path';
 import { UploadedDocument, UploadedDocumentDocument } from '../../models/UploadedDocument';
@@ -40,7 +40,7 @@ export class UploadsService {
 
   async findByUser(userId: string): Promise<UploadedDocument[]> {
     return this.uploadModel
-      .find({ user: userId })
+      .find({ user: new Types.ObjectId(userId) })
       .populate('requiredDocument')
       .exec();
   }
@@ -55,7 +55,7 @@ export class UploadsService {
   async findWalletDocuments(userId: string): Promise<UploadedDocument[]> {
     return this.uploadModel
       .find({
-        user: userId,
+        user: new Types.ObjectId(userId),
         verified: true,
         expiresAt: { $gte: new Date() },
       })

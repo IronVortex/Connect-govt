@@ -15,7 +15,7 @@ export class ApplicationService {
 
   async getSummaryForUser(userId: string) {
     const uploads = await this.uploadModel
-      .find({ user: userId })
+      .find({ user: new Types.ObjectId(userId) })
       .populate({ path: 'requiredDocument', populate: { path: 'service' } })
       .exec();
 
@@ -84,7 +84,7 @@ export class ApplicationService {
       throw new NotFoundException('Selected service not found.');
     }
 
-    const existing = await this.applicationModel.findOne({ user: userId, service: service._id, deletedAt: null }).exec();
+    const existing = await this.applicationModel.findOne({ user: new Types.ObjectId(userId), service: service._id, deletedAt: null }).exec();
     if (existing) {
       throw new BadRequestException('An application for this service already exists.');
     }
@@ -101,7 +101,7 @@ export class ApplicationService {
   }
 
   async getApplicationsForUser(userId: string, userRole: string) {
-    const query = userRole === 'admin' ? { deletedAt: null } : { user: userId, deletedAt: null };
+    const query = userRole === 'admin' ? { deletedAt: null } : { user: new Types.ObjectId(userId), deletedAt: null };
     return this.applicationModel.find(query).populate('service').populate('uploadedDocuments').exec();
   }
 
@@ -153,6 +153,20 @@ export class ApplicationService {
         if (!['DRAFT', 'NEEDS_CORRECTION'].includes(application.status) && newStatus === 'SUBMITTED') {
           throw new BadRequestException('Only draft or correction-needed applications can be submitted.');
         }
+      }
+
+      if (newStatus === 'SUBMITTED') {
+        const userUploads = await this.uploadModel
+          .find({ user: application.user })
+          .populate('requiredDocument')
+          .exec();
+        
+        const appUploads = userUploads.filter(u => {
+          const reqDoc = u.requiredDocument as any;
+          return reqDoc && reqDoc.service && reqDoc.service.toString() === application.service.toString();
+        });
+        
+        application.uploadedDocuments = appUploads.map(u => u._id);
       }
 
       application.status = newStatus;

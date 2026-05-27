@@ -282,8 +282,17 @@ export default function WalletPage() {
         apiClient.get<UploadedDocument[]>('/upload/wallet'),
         apiClient.get<UploadedDocument[]>('/upload/me'),
       ]);
-      setWalletDocs(walletRes.data ?? []);
-      setAllUploads(allRes.data ?? []);
+      const rawWallet = walletRes.data ?? [];
+      const rawHistory = allRes.data ?? [];
+
+      // Deduplicate wallet docs by document name (keep the latest one)
+      const uniqueWalletMap = new Map<string, UploadedDocument>();
+      rawWallet.forEach((doc) => {
+        uniqueWalletMap.set(getDocName(doc), doc);
+      });
+      setWalletDocs(Array.from(uniqueWalletMap.values()).reverse());
+      
+      setAllUploads(rawHistory.reverse());
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load your documents.');
     } finally {

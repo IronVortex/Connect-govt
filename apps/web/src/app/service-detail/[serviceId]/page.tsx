@@ -482,7 +482,7 @@ export default function ServiceDetailPage() {
                 ) : (
                   <button
                     onClick={handleSubmitApplication}
-                    disabled={isSubmitting || completion.uploaded === 0}
+                    disabled={isSubmitting || completion.uploaded < completion.total}
                     className="w-full py-3 rounded-2xl bg-[#1D61FF] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:shadow-none"
                   >
                     {isSubmitting ? (
@@ -493,8 +493,8 @@ export default function ServiceDetailPage() {
                   </button>
                 )}
 
-                {completion.uploaded === 0 && !application && (
-                  <p className="mt-2 text-center text-xs text-slate-400 font-medium">Upload at least one document to submit</p>
+                {completion.uploaded < completion.total && (
+                  <p className="mt-2 text-center text-xs text-slate-400 font-medium">Upload all {completion.total} required documents to submit</p>
                 )}
 
                 {submitMessage && (
