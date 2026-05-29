@@ -111,7 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('connect:unauthorized', handleUnauthorized);
   }, [isPublicRoute, router]);
 
-  // Protected route redirects
   useEffect(() => {
     if (loading) return;
 
@@ -157,9 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await apiClient.post('/auth/logout');
+      const response = await apiClient.post('/auth/logout');
     } catch (err) {
-      console.error('Logout failed:', err);
     } finally {
       clearAccessToken();
       setUser(null);
@@ -177,14 +175,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         `}} />
         
-        {/* Subtle grid pattern background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-60"></div>
         
-        {/* Glowing blue backdrop light */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1D61FF]/10 rounded-full blur-[120px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-sm w-full text-center flex flex-col items-center">
-          {/* Logo container with pulse ring */}
           <div className="relative mb-8 w-20 h-20">
             <div className="absolute inset-0 bg-[#1D61FF]/30 rounded-[24px] blur-xl animate-pulse"></div>
             <div className="absolute inset-0 border border-[#1D61FF]/50 rounded-[24px] animate-ping opacity-40"></div>
@@ -201,7 +196,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             Establishing a verified credentials channel with government services.
           </p>
 
-          {/* Loading status/bar */}
           <div className="w-full bg-slate-900 border border-slate-800/80 rounded-2xl h-1.5 mt-8 overflow-hidden relative">
             <div 
               className="absolute bg-gradient-to-r from-[#1D61FF] to-[#00C6FF] h-full w-2/3 rounded-full"

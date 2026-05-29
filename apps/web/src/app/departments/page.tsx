@@ -54,7 +54,6 @@ export default function DepartmentsPage() {
         );
         setServiceCountByDepartment(counts);
       } catch (err: any) {
-        console.error('[Departments page failed]', err);
         setError(err?.response?.data?.message || 'Unable to load departments.');
       } finally {
         setIsLoading(false);

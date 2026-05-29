@@ -15,9 +15,17 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = Number(configService.get<string>('PORT') || 3001);
   const frontendUrl = configService.get<string>('FRONTEND_URL');
+  
+  if (!frontendUrl) {
+    loggerContext.warn(
+      'WARNING: FRONTEND_URL environment variable is not set. '
+      + 'CORS will be disabled. Please configure it for production.'
+    );
+  }
+  
   const allowedOrigins = frontendUrl
     ? frontendUrl.split(',').map((origin) => origin.trim())
-    : ['http://localhost:3000', 'http://localhost:4200'];
+    : [];
 
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ limit: '10mb', extended: true }));

@@ -26,7 +26,13 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const uri = configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/connect-govt';
+        const uri = configService.get<string>('MONGODB_URI');
+        if (!uri) {
+          throw new Error(
+            'MONGODB_URI environment variable is required. '
+            + 'Please configure it in your .env file or deployment platform.'
+          );
+        }
         const dbName = configService.get<string>('MONGODB_DB') || 'connect-govt';
         
         return {

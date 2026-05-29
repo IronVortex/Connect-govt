@@ -94,7 +94,9 @@ export default function SettingsPage() {
         const apps = res.data || [];
         const active = apps.filter((a: any) => !['APPROVED', 'REJECTED'].includes(a.status));
         setActiveApplications(active.length);
-      }).catch(console.error);
+      }).catch(() => {
+        // Error silently handled by UI
+      });
     }
   }, [user]);
 
@@ -654,7 +656,6 @@ export default function SettingsPage() {
                             await apiClient.delete('/users/profile');
                             window.location.href = '/auth/login';
                           } catch (err: any) {
-                            console.error('Failed to delete account', err);
                             setIsDeleting(false);
                             setShowDeleteConfirm(false);
                             alert('Failed to delete account. Please try again.');

@@ -1,8 +1,15 @@
 import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from 'axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from './auth';
 
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.error(
+    'ERROR: NEXT_PUBLIC_API_URL environment variable is not set. '
+    + 'Please configure it in your .env.local or deployment platform.'
+  );
+}
+
 const apiBaseUrl = (
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  process.env.NEXT_PUBLIC_API_URL || ''
 ).replace(/\/api\/?$/, '');
 
 const apiClient = axios.create({
