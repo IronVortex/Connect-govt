@@ -19,6 +19,12 @@ dist
 # Misc
 .DS_Store
 *.pem
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.env.local.*
 
 # Debug
 npm-debug.log*
@@ -59,4 +65,13 @@ scratch/
 tmp/
 eng.traineddata
 test_api.js
-*.log
+*.log
+
+# Deployment logs
+build-output.txt
+node-*.txt
+node-test*.txt
+
+# OS files
+Thumbs.db
+.DS_Store

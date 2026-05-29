@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: connect-govt-api
+    runtime: node
+    plan: standard
+    buildCommand: pnpm install && pnpm nx build api
+    startCommand: node dist/apps/api/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: connect-govt
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRATION
+        value: 1d
+      - key: REFRESH_TOKEN_EXPIRATION
+        value: 7d
+      - key: FRONTEND_URL
+        value: https://your-vercel-domain.com
+      - key: LOG_LEVEL
+        value: info

@@ -19,11 +19,7 @@ export async function getServicesForDepartment(
     return departmentServices;
   }
 
-  console.warn(
-    '[Department services fallback] /departments/:id/services returned empty; filtering /services',
-    { departmentId },
-  );
-
+  // Fallback: filter services by department if endpoint returns empty
   const allServicesRes = await apiClient.get<Service[]>('/services');
   return (allServicesRes.data || []).filter(
     (service) => getServiceDepartmentId(service) === departmentId,
