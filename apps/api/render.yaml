@@ -5,6 +5,7 @@ services:
     plan: standard
     buildCommand: pnpm install && pnpm nx build api
     startCommand: node dist/apps/api/main.js
+    rootDir: apps/api
     envVars:
       - key: NODE_ENV
         value: production

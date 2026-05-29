@@ -62,8 +62,8 @@ async function bootstrap() {
     loggerContext.warn(`MongoDB connection state: ${mongoConnection.readyState}`);
   }
 
-  await app.listen(port);
-  loggerContext.log(`API running on http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  loggerContext.log(`API running on port ${port}`);
 }
 
 bootstrap();
