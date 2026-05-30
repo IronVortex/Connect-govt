@@ -3,7 +3,7 @@
   "buildCommand": "pnpm nx build web",
   "installCommand": "pnpm install",
   "env": {
-    "NEXT_PUBLIC_API_URL": "@api_url"
+    "NEXT_PUBLIC_API_URL": "https://connect-govt-api-ubki.onrender.com"
   },
   "rewrites": [
     {
