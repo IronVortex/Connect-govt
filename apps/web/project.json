@@ -12,9 +12,7 @@
         "outputPath": "dist/apps/web"
       },
       "configurations": {
-        "development": {
-          "outputPath": "apps/web"
-        },
+        "development": {},
         "production": {}
       }
     },
@@ -24,16 +22,6 @@
       "options": {
         "buildTarget": "web:build",
         "dev": true
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "web:build:development",
-          "dev": true
-        },
-        "production": {
-          "buildTarget": "web:build:production",
-          "dev": false
-        }
       }
     }
   },
