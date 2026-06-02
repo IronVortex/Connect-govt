@@ -2,9 +2,13 @@
   "name": "connect",
   "version": "0.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
   "engines": {
-    "node": "20.x"
-  },
+  "node": "20.x"
+},
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
     "@nestjs/common": "^11.1.19",
