@@ -106,7 +106,7 @@ export default function RtoServicesPage() {
             {services.map((service) => (
               <Link 
                 key={service.id} 
-                href={service.id === 'new-car-registration' ? '/service-detail' : `/departments/rto/${service.id}`}
+                href="/service-detail"
                 className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative overflow-hidden"
               >
                 {service.popular && (

@@ -2,9 +2,13 @@
   "name": "connect",
   "version": "0.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
   "engines": {
-    "node": "20.x"
-  },
+  "node": "20.x"
+},
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
     "@nestjs/common": "^11.1.19",
@@ -35,6 +39,7 @@
     "clsx": "^2.1.1",
     "cookie-parser": "^1.4.7",
     "esbuild": "^0.27.0",
+    "express": "^5.2.1",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.14.0",
     "mongoose": "^9.6.0",
@@ -50,6 +55,7 @@
     "react-dom": "^19.2.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.5.0",
     "tesseract.js": "^7.0.0",
     "ts-node": "^10.9.2",
@@ -58,6 +64,7 @@
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

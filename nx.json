@@ -1,7 +1,7 @@
 {
   "analytics": true,
   "cli": {
-    "packageManager": "npm"
+    "packageManager": "pnpm"
   },
   "plugins": [
     {
