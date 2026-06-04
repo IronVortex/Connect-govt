@@ -79,7 +79,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "nx build",
+    "build": "nx build web",
     "test": "nx test",
     "start": "nx serve",
     "serve:web": "nx serve web",
