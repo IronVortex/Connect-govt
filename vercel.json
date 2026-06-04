@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm nx build web",
+  "outputDirectory": "dist/apps/web/.next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://connect-govt-api-ubki.onrender.com"
+  }
+}
