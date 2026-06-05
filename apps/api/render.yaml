@@ -22,6 +22,6 @@ services:
       - key: REFRESH_TOKEN_EXPIRATION
         value: 7d
       - key: FRONTEND_URL
-        value: https://your-vercel-domain.com
+        value: https://connect-govt-project-dlucluv44-ajafshan17-6177s-projects.vercel.app/
       - key: LOG_LEVEL
         value: info

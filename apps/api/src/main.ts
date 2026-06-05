@@ -14,15 +14,19 @@ async function bootstrap() {
   const loggerContext = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
   const port = Number(configService.get<string>('PORT') || 3001);
-  const frontendUrl = configService.get<string>('FRONTEND_URL');
+  const configuredFrontendUrls = configService.get<string>('FRONTEND_URL');
+
+  const normalizeOrigin = (origin: string) => origin.trim().replace(/\/$/, '');
 
   const allowedOrigins = new Set([
-    'https://connect-govt-project-5gyge2t3m-ajafshan17-6177s-projects.vercel.app',
-    'http://localhost:3000',
-    ...(frontendUrl
-      ? frontendUrl
+    normalizeOrigin('http://localhost:3000'),
+    normalizeOrigin(
+      'https://connect-govt-project-5gyge2t3m-ajafshan17-6177s-projects.vercel.app',
+    ),
+    ...(configuredFrontendUrls
+      ? configuredFrontendUrls
           .split(',')
-          .map((origin) => origin.trim())
+          .map(normalizeOrigin)
           .filter(Boolean)
       : []),
   ]);
@@ -32,7 +36,7 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (error: Error | null, allow?: boolean) => void,
     ) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
         callback(null, true);
         return;
       }
