@@ -14,21 +14,25 @@ async function bootstrap() {
   const loggerContext = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
   const port = Number(configService.get<string>('PORT') || 3001);
-  const configuredFrontendUrls = configService.get<string>('FRONTEND_URL');
-
   const normalizeOrigin = (origin: string) => origin.trim().replace(/\/$/, '');
+  const configuredFrontendUrls = [
+    configService.get<string>('FRONTEND_URL'),
+    configService.get<string>('CLIENT_URL'),
+    configService.get<string>('CORS_ORIGIN'),
+  ]
+    .filter(Boolean)
+    .flatMap((value) => value!.split(','))
+    .map(normalizeOrigin)
+    .filter(Boolean);
 
   const allowedOrigins = new Set([
     normalizeOrigin('http://localhost:3000'),
+    normalizeOrigin('http://localhost:3001'),
+    normalizeOrigin('http://localhost:3333'),
     normalizeOrigin(
-      'https://connect-govt-project-5gyge2t3m-ajafshan17-6177s-projects.vercel.app',
+      'https://connect-govt-project-qjrgt2wf6-ajafshan17-6177s-projects.vercel.app',
     ),
-    ...(configuredFrontendUrls
-      ? configuredFrontendUrls
-          .split(',')
-          .map(normalizeOrigin)
-          .filter(Boolean)
-      : []),
+    ...configuredFrontendUrls,
   ]);
 
   app.enableCors({
@@ -44,7 +48,7 @@ async function bootstrap() {
       callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,

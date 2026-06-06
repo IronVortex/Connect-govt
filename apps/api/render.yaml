@@ -5,7 +5,6 @@ services:
     plan: standard
     buildCommand: pnpm install && pnpm nx build api
     startCommand: node dist/apps/api/main.js
-    rootDir: apps/api
     envVars:
       - key: NODE_ENV
         value: production
@@ -22,6 +21,6 @@ services:
       - key: REFRESH_TOKEN_EXPIRATION
         value: 7d
       - key: FRONTEND_URL
-        value: https://connect-govt-project-dlucluv44-ajafshan17-6177s-projects.vercel.app/
+        value: https://connect-govt-project-qjrgt2wf6-ajafshan17-6177s-projects.vercel.app
       - key: LOG_LEVEL
         value: info
