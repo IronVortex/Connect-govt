@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import apiClient from '../services/apiClient';
+import apiClient, { apiUrl } from '../services/apiClient';
 import { getAccessToken, setAccessToken, clearAccessToken } from '../services/auth';
 
 interface User {
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const response = await apiClient.post('/auth/refresh');
+      const response = await apiClient.post(apiUrl('/auth/refresh'));
       const accessToken = response.data?.access_token;
       if (accessToken) {
         setAccessToken(accessToken);
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post(apiUrl('/auth/login'), { email, password });
       const { access_token } = response.data;
       setAccessToken(access_token);
       await fetchProfile(access_token);
@@ -141,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/register', { name, email, password });
+      const response = await apiClient.post(apiUrl('/auth/register'), { name, email, password });
       const { access_token } = response.data;
       setAccessToken(access_token);
       await fetchProfile(access_token);
@@ -156,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      const response = await apiClient.post('/auth/logout');
+      const response = await apiClient.post(apiUrl('/auth/logout'));
     } catch (err) {
     } finally {
       clearAccessToken();

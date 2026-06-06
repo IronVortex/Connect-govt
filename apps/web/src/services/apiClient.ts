@@ -1,16 +1,24 @@
 import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig } from 'axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from './auth';
 
+const fallbackApiBaseUrl = 'https://connect-govt-api-ubki.onrender.com';
+
 if (!process.env.NEXT_PUBLIC_API_URL) {
   console.error(
     'ERROR: NEXT_PUBLIC_API_URL environment variable is not set. '
+    + `Falling back to ${fallbackApiBaseUrl}. `
     + 'Please configure it in your .env.local or deployment platform.'
   );
 }
 
 const apiBaseUrl = (
-  process.env.NEXT_PUBLIC_API_URL || ''
+  process.env.NEXT_PUBLIC_API_URL || fallbackApiBaseUrl
 ).replace(/\/api\/?$/, '');
+
+export const apiUrl = (path: string) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${apiBaseUrl}${normalizedPath}`;
+};
 
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
@@ -25,7 +33,7 @@ let refreshPromise: Promise<string | null> | null = null;
 async function refreshToken() {
   if (!refreshPromise) {
     refreshPromise = apiClient
-      .post('/auth/refresh')
+      .post(apiUrl('/auth/refresh'))
       .then((response) => {
         const accessToken = response.data?.access_token;
         if (accessToken) {
