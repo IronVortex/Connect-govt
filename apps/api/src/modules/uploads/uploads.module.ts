@@ -3,8 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
-import { DetectionService } from './detection.service';
-import { DocumentVerificationService } from './document-verification.service';
+import { DocumentsModule } from '../documents/documents.module';
 import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { User, UserSchema } from '../../models/User';
@@ -14,6 +13,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
 @Module({
   imports: [
+    DocumentsModule,
     MulterModule.register({
       storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
@@ -34,7 +34,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
     ]),
   ],
   controllers: [UploadsController],
-  providers: [UploadsService, DetectionService, DocumentVerificationService],
+  providers: [UploadsService],
   exports: [UploadsService],
 })
 export class UploadsModule {}
