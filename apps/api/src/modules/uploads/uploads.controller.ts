@@ -104,9 +104,9 @@ export class UploadsController {
       extractedText: analysis.extractedText,
       detectionReasons: analysis.reasons,
       matchedExpectedType: expectedType,
-      verified: analysis.status === 'MATCHED',
+      verified: analysis.verified,
       expiresAt:
-        analysis.status === 'MATCHED'
+        analysis.verified
           ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
           : undefined,
       source: 'upload',

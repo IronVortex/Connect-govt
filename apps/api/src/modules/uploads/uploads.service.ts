@@ -102,8 +102,13 @@ export class UploadsService {
     fileBuffer?: Buffer,
   ): Promise<{
     detectedType: string;
+    documentType: string;
+    verified: boolean;
     status: DetectionStatus;
     confidence: number;
+    extractedFields: Record<string, unknown>;
+    missingFields: string[];
+    reason?: string;
     extractedText: string;
     reasons: string[];
   }> {
@@ -172,8 +177,13 @@ export class UploadsService {
 
     return {
       detectedType: detection.documentType,
+      documentType: detection.documentType,
+      verified: detection.verified,
       status: detection.status,
       confidence: detection.confidence,
+      extractedFields: detection.extractedFields,
+      missingFields: detection.missingFields,
+      reason: detection.verification.reason,
       extractedText: normalizedText.slice(0, 5000),
       reasons: detection.reasons,
     };

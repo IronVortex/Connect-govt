@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { DetectionService } from './detection.service';
+import { DocumentVerificationService } from './document-verification.service';
 import { UploadedDocument, UploadedDocumentSchema } from '../../models/UploadedDocument';
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { User, UserSchema } from '../../models/User';
@@ -33,7 +34,7 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
     ]),
   ],
   controllers: [UploadsController],
-  providers: [UploadsService, DetectionService],
+  providers: [UploadsService, DetectionService, DocumentVerificationService],
   exports: [UploadsService],
 })
 export class UploadsModule {}
