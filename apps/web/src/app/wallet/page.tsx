@@ -71,6 +71,27 @@ const STATUS_META: Record<
   string,
   { label: string; icon: React.ElementType; bg: string; text: string; dot: string }
 > = {
+  VERIFIED: {
+    label: 'Verified',
+    icon: CheckCircle2,
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+  REVIEW_REQUIRED: {
+    label: 'Review',
+    icon: AlertCircle,
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    dot: 'bg-amber-500',
+  },
+  REJECTED: {
+    label: 'Rejected',
+    icon: XCircle,
+    bg: 'bg-red-50',
+    text: 'text-red-700',
+    dot: 'bg-red-500',
+  },
   MATCHED: {
     label: 'Verified',
     icon: CheckCircle2,
@@ -79,11 +100,11 @@ const STATUS_META: Record<
     dot: 'bg-emerald-500',
   },
   DETECTED: {
-    label: 'Detected',
-    icon: Eye,
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    dot: 'bg-blue-500',
+    label: 'Verified',
+    icon: CheckCircle2,
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    dot: 'bg-emerald-500',
   },
   NEEDS_REVIEW: {
     label: 'Review',
@@ -93,7 +114,7 @@ const STATUS_META: Record<
     dot: 'bg-amber-500',
   },
   MISMATCHED: {
-    label: 'Mismatch',
+    label: 'Rejected',
     icon: XCircle,
     bg: 'bg-red-50',
     text: 'text-red-700',
@@ -323,7 +344,7 @@ export default function WalletPage() {
     },
     {
       label: 'Under review',
-      value: allUploads.filter((d) => d.detectionStatus === 'NEEDS_REVIEW').length,
+      value: allUploads.filter((d) => d.detectionStatus === 'REVIEW_REQUIRED').length,
       icon: AlertCircle,
       color: 'text-amber-600',
       bg: 'bg-amber-50',

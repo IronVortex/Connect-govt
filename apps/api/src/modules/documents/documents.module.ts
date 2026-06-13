@@ -4,9 +4,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { memoryStorage } from 'multer';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
-import { DetectionService } from './detection.service';
 import { OcrService } from './ocr.service';
+import { PreprocessingService } from './preprocessing.service';
 import { ValidationService } from './validation.service';
+import { VisionClassificationService } from './vision-classification.service';
+import { VerificationService } from './verification.service';
 import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredDocument';
 import { Service, ServiceSchema } from '../../models/Service';
 import {
@@ -38,7 +40,14 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
     ]),
   ],
   controllers: [DocumentsController],
-  providers: [DocumentsService, DetectionService, OcrService, ValidationService],
+  providers: [
+    DocumentsService,
+    PreprocessingService,
+    VisionClassificationService,
+    OcrService,
+    ValidationService,
+    VerificationService,
+  ],
   exports: [DocumentsService],
 })
 export class DocumentsModule {}

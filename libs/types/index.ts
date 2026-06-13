@@ -21,6 +21,8 @@ export interface RequiredDocument {
   service: Service | string;
 }
 
+export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
+
 export interface UploadedDocument {
   _id: string;
   requiredDocument: RequiredDocument | string;
@@ -28,7 +30,7 @@ export interface UploadedDocument {
   path: string;
   mimetype: string;
   size: number;
-  detectionStatus: 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
+  detectionStatus: VerificationStatus;
   detectedType?: string;
   confidence?: number;
   extractedText?: string;
@@ -42,16 +44,23 @@ export interface UploadedDocument {
 
 export interface ApplicationSummary {
   totalDocuments: number;
-  matched: number;
-  detected: number;
-  needsReview: number;
-  mismatched: number;
+  verified: number;
+  reviewRequired: number;
+  rejected: number;
   unknown: number;
   uploads: UploadedDocument[];
   tips: string[];
   feesByService?: { serviceId: string; name: string; fee?: number; estimatedProcessingTime?: string }[];
   totalFee?: number;
   estimatedProcessingTime?: string;
+  /** @deprecated */
+  matched?: number;
+  /** @deprecated */
+  detected?: number;
+  /** @deprecated */
+  needsReview?: number;
+  /** @deprecated */
+  mismatched?: number;
 }
 
 export interface User {

@@ -11,9 +11,10 @@ import {
   DocumentIntelligenceRecordDocument,
 } from '../../models/DocumentIntelligenceRecord';
 import { RequiredDocument, RequiredDocumentDocument } from '../../models/RequiredDocument';
-import { DetectionService } from './detection.service';
 import { OcrService } from './ocr.service';
 import { ValidationService } from './validation.service';
+import { VisionClassificationService } from './vision-classification.service';
+import { VerificationService } from './verification.service';
 import {
   DocumentIntelligenceResponse,
   LegacyAnalysisResult,
@@ -38,8 +39,9 @@ export class DocumentsService {
     @InjectModel(DocumentIntelligenceRecord.name)
     private intelligenceModel: Model<DocumentIntelligenceRecordDocument>,
     private readonly ocrService: OcrService,
-    private readonly detectionService: DetectionService,
+    private readonly visionClassificationService: VisionClassificationService,
     private readonly validationService: ValidationService,
+    private readonly verificationService: VerificationService,
   ) {}
 
   async findAll(): Promise<RequiredDocument[]> {
@@ -78,47 +80,68 @@ export class DocumentsService {
     return newDocument.save();
   }
 
+  /**
+   * Pipeline: Preprocessing → Vision Classification → OCR → Structured Extraction → Validation → Verification
+   */
   async processDocument(input: ProcessDocumentInput): Promise<DocumentIntelligenceResponse> {
-    const { buffer, mimeType, filename, expectedDocumentType, userId, persist = false } = input;
+    const { buffer, mimeType, expectedDocumentType, userId, persist = false } = input;
 
     if (!buffer?.length) {
       throw new BadRequestException('File content is required for document intelligence processing');
     }
 
+    // Step 1: Vision AI classification (before OCR)
+    const classification = await this.visionClassificationService.classify(
+      buffer,
+      mimeType,
+      expectedDocumentType,
+    );
+
+    this.logger.log(
+      `Classification: type=${classification.documentType}, confidence=${classification.confidence}%, ` +
+        `matchesExpected=${classification.matchesExpectedType}`,
+    );
+
+    // Step 2: OCR text extraction (after classification)
     const ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
     const extractedText =
       ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
         ? ocrResult.text.slice(0, 5000)
         : NO_TEXT_FOUND;
 
-    const detection = this.detectionService.detect(
+    // Step 3: Structured data extraction
+    const extractedData = this.validationService.parseFields(
+      classification.documentType,
       ocrResult.text,
-      filename,
-      expectedDocumentType,
-      ocrResult.imageProperties,
-      ocrResult.ocrConfidence,
     );
 
-    const extractedData = this.validationService.parseFields(detection.documentType, ocrResult.text);
+    // Step 4: Validation rules
     const validation = this.validationService.validate(
-      detection.documentType,
+      classification.documentType,
       ocrResult.text,
-      detection.confidence,
+      classification.confidence,
+      expectedDocumentType,
+    );
+
+    // Step 5: Final verification result
+    const verification = this.verificationService.resolve(
+      classification,
+      ocrResult,
+      validation,
+      extractedData,
       expectedDocumentType,
     );
 
     const response: DocumentIntelligenceResponse = {
-      documentType: detection.documentType,
+      documentType: classification.documentType,
       extractedData,
-      validation: {
-        ...validation,
-        confidence: detection.confidence,
-      },
+      validation,
       extractedText,
+      verification,
     };
 
     if (persist && userId) {
-      await this.saveIntelligenceResult(userId, response, filename, mimeType);
+      await this.saveIntelligenceResult(userId, response, input.filename, mimeType);
     }
 
     return response;
@@ -176,32 +199,37 @@ export class DocumentsService {
     result: DocumentIntelligenceResponse,
     expectedDocumentType?: string,
   ): LegacyAnalysisResult {
-    const displayType = this.detectionService.toDisplayLabel(result.documentType);
-    const confidencePercent = Math.round(result.validation.confidence * 100);
-    const status = this.detectionService.resolveStatus(
-      result.validation.confidence,
-      result.documentType,
-      expectedDocumentType,
-    );
+    const verification = result.verification;
+    const displayType =
+      verification?.documentTypeLabel ||
+      this.visionClassificationService.toDisplayLabel(result.documentType);
+    const confidence = verification?.confidence ?? 0;
+    const status = verification?.status ?? 'UNKNOWN';
+    const verified = verification?.verified ?? false;
 
-    const verified =
-      result.validation.isValid && (status === 'MATCHED' || status === 'DETECTED');
+    const extractedFields = verification?.extractedFields ?? {
+      name: result.extractedData.name,
+      dob: result.extractedData.dob,
+      idNumber: result.extractedData.idNumber,
+    };
+
+    const missingFields = result.validation.issues?.filter(i => i.startsWith('Missing')) ?? [];
 
     return {
       detectedType: displayType,
       documentType: displayType,
       verified,
       status,
-      confidence: confidencePercent,
-      extractedFields: {
-        name: result.extractedData.name,
-        dob: result.extractedData.dob,
-        idNumber: result.extractedData.idNumber,
-      },
-      missingFields: result.validation.missingFields,
-      reason: verified ? undefined : result.validation.reasons[0],
+      confidence,
+      extractedFields,
+      missingFields: missingFields.map(m => m.replace('Missing fields: ', '')),
+      reason: verified ? undefined : verification?.reasons?.[0],
       extractedText: result.extractedText,
-      reasons: result.validation.reasons,
+      reasons: verification?.reasons ?? result.validation.issues ?? [],
+      validationIssues: result.validation.issues,
+      detectedFeatures: verification?.detectedFeatures,
+      matchesExpectedType: verification?.matchesExpectedType,
+      ocrQualityIssues: verification?.ocr.qualityIssues,
     };
   }
 }

@@ -3,11 +3,10 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type UploadedDocumentDocument = HydratedDocument<UploadedDocument>;
 export const UPLOAD_DETECTION_STATUSES = [
-  'MATCHED',
-  'MISMATCHED',
+  'VERIFIED',
+  'REVIEW_REQUIRED',
+  'REJECTED',
   'UNKNOWN',
-  'NEEDS_REVIEW',
-  'DETECTED',
 ] as const;
 export type UploadDetectionStatus =
   (typeof UPLOAD_DETECTION_STATUSES)[number];

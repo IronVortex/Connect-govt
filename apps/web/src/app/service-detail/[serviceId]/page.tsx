@@ -32,16 +32,17 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_FORMAT_LABEL = 'JPG, PNG, PDF';
 
-type DetectionStatus = 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
+type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
 type UploadState = {
   fileName?: string;
   progress: number;
   message?: string;
   tone?: 'success' | 'error';
-  status?: DetectionStatus;
+  status?: VerificationStatus;
   detectedType?: string;
   confidence?: number;
   reasons?: string[];
+  extractedFields?: Record<string, unknown>;
 };
 
 function getRequiredDocumentId(upload: UploadedDocument) {
@@ -53,17 +54,33 @@ function formatBytes(size: number) {
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function normalizeUploadResponse(data: any): { 
-  status: DetectionStatus; 
+function normalizeLegacyStatus(status?: string): VerificationStatus {
+  const map: Record<string, VerificationStatus> = {
+    MATCHED: 'VERIFIED',
+    DETECTED: 'VERIFIED',
+    MISMATCHED: 'REJECTED',
+    NEEDS_REVIEW: 'REVIEW_REQUIRED',
+    VERIFIED: 'VERIFIED',
+    REVIEW_REQUIRED: 'REVIEW_REQUIRED',
+    REJECTED: 'REJECTED',
+    UNKNOWN: 'UNKNOWN',
+  };
+  return map[status || ''] || 'UNKNOWN';
+}
+
+function normalizeUploadResponse(data: any): {
+  status: VerificationStatus;
   detectedType: string;
   confidence?: number;
   reasons?: string[];
+  extractedFields?: Record<string, unknown>;
 } {
   return {
-    status: data?.detectionStatus || data?.status || 'UNKNOWN',
+    status: normalizeLegacyStatus(data?.detectionStatus || data?.status),
     detectedType: data?.detectedType || data?.documentType || 'Unknown',
     confidence: data?.confidence,
     reasons: data?.detectionReasons,
+    extractedFields: data?.extractedFields,
   };
 }
 
@@ -277,18 +294,16 @@ export default function ServiceDetailPage() {
 
       const payload = normalizeUploadResponse(response.data);
       
-      const getMessageForStatus = (status: DetectionStatus, confidence?: number): string => {
+      const getMessageForStatus = (status: VerificationStatus, confidence?: number): string => {
         switch (status) {
-          case 'MATCHED':
-            return `✓ Verified! Document matches expected type (${confidence}% confidence)`;
-          case 'DETECTED':
-            return `✓ Document detected and saved (${confidence}% confidence)`;
-          case 'MISMATCHED':
-            return `Document detected but doesn't match expected type. Please review.`;
-          case 'NEEDS_REVIEW':
-            return `Document partially recognized. Manual review recommended (${confidence}% confidence).`;
+          case 'VERIFIED':
+            return `Document verified successfully (${confidence}% confidence)`;
+          case 'REVIEW_REQUIRED':
+            return `Document requires manual review (${confidence}% confidence)`;
+          case 'REJECTED':
+            return `Wrong document uploaded or validation failed. Please upload the correct document.`;
           case 'UNKNOWN':
-            return 'Document could not be identified. Please upload a clearer image.';
+            return 'Document could not be classified reliably. Please upload a clearer image.';
           default:
             return 'Upload complete.';
         }
@@ -303,7 +318,8 @@ export default function ServiceDetailPage() {
           detectedType: payload.detectedType,
           confidence: payload.confidence,
           reasons: payload.reasons,
-          tone: ['MATCHED', 'DETECTED'].includes(payload.status) ? 'success' : 'error',
+          extractedFields: payload.extractedFields,
+          tone: payload.status === 'VERIFIED' ? 'success' : 'error',
           message: getMessageForStatus(payload.status, payload.confidence),
         },
       }));
@@ -438,7 +454,7 @@ export default function ServiceDetailPage() {
                 {[
                   { label: 'Choose service', done: true },
                   { label: 'Upload documents', done: completion.uploaded > 0 },
-                  { label: 'AI verification', done: (summary?.detected ?? 0) > 0 || completion.percent === 100 },
+                  { label: 'AI verification', done: (summary?.verified ?? summary?.detected ?? 0) > 0 || completion.percent === 100 },
                   { label: 'Ready for review', done: completion.percent === 100 },
                   { label: 'Application submitted', done: application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' },
                 ].map((step) => (
@@ -515,8 +531,8 @@ export default function ServiceDetailPage() {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">Verification summary</p>
               <div className="mt-5 grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Verified', value: summary?.detected ?? 0 },
-                  { label: 'Review', value: summary?.mismatched ?? 0 },
+                  { label: 'Verified', value: summary?.verified ?? summary?.detected ?? 0 },
+                  { label: 'Review', value: summary?.reviewRequired ?? summary?.mismatched ?? 0 },
                   { label: 'Unknown', value: summary?.unknown ?? 0 },
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl bg-white/10 p-3 text-center">

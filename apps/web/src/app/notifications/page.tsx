@@ -52,19 +52,25 @@ function uploadToNotification(upload: UploadedDocument): NotificationItem {
       : (upload.requiredDocument as any)?.name ?? upload.filename;
 
   const statusMessages: Record<string, string> = {
-    MATCHED: `✓ "${docName}" was verified and matched successfully.`,
-    DETECTED: `"${docName}" was detected and saved to your wallet.`,
-    MISMATCHED: `"${docName}" was uploaded but doesn't match the expected type. Please review.`,
-    NEEDS_REVIEW: `"${docName}" needs manual review — confidence was low.`,
-    UNKNOWN: `"${docName}" could not be identified. Try uploading a clearer file.`,
+    VERIFIED: `"${docName}" was verified successfully.`,
+    REVIEW_REQUIRED: `"${docName}" needs manual review — confidence was moderate.`,
+    REJECTED: `"${docName}" was rejected — wrong document or validation failed.`,
+    UNKNOWN: `"${docName}" could not be classified. Try uploading a clearer file.`,
+    MATCHED: `"${docName}" was verified successfully.`,
+    DETECTED: `"${docName}" was verified successfully.`,
+    MISMATCHED: `"${docName}" was rejected — wrong document type.`,
+    NEEDS_REVIEW: `"${docName}" needs manual review.`,
   };
 
   const titles: Record<string, string> = {
-    MATCHED: 'Document verified',
-    DETECTED: 'Document detected',
-    MISMATCHED: 'Document mismatch',
-    NEEDS_REVIEW: 'Review required',
+    VERIFIED: 'Document verified',
+    REVIEW_REQUIRED: 'Review required',
+    REJECTED: 'Document rejected',
     UNKNOWN: 'Unrecognised document',
+    MATCHED: 'Document verified',
+    DETECTED: 'Document verified',
+    MISMATCHED: 'Document rejected',
+    NEEDS_REVIEW: 'Review required',
   };
 
   return {

@@ -112,7 +112,10 @@ export class UploadsController {
       source: 'upload',
     });
 
-    return upload;
+    return {
+      ...(upload as unknown as Record<string, unknown>),
+      extractedFields: analysis.extractedFields,
+    };
   }
 
   @UseGuards(JwtAuthGuard)

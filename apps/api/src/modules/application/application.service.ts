@@ -20,10 +20,9 @@ export class ApplicationService {
       .exec();
 
     const total = uploads.length;
-    const matched = uploads.filter((item) => item.detectionStatus === 'MATCHED').length;
-    const detected = uploads.filter((item) => item.detectionStatus === 'DETECTED').length;
-    const needsReview = uploads.filter((item) => item.detectionStatus === 'NEEDS_REVIEW').length;
-    const mismatched = uploads.filter((item) => item.detectionStatus === 'MISMATCHED').length;
+    const verified = uploads.filter((item) => item.detectionStatus === 'VERIFIED').length;
+    const reviewRequired = uploads.filter((item) => item.detectionStatus === 'REVIEW_REQUIRED').length;
+    const rejected = uploads.filter((item) => item.detectionStatus === 'REJECTED').length;
     const unknown = uploads.filter((item) => item.detectionStatus === 'UNKNOWN').length;
 
     const feesMap: Record<string, { serviceId: string; name: string; fee?: number; estimatedProcessingTime?: string }> = {};
@@ -60,11 +59,18 @@ export class ApplicationService {
 
     return {
       totalDocuments: total,
-      matched,
-      detected,
-      needsReview,
-      mismatched,
+      verified,
+      reviewRequired,
+      rejected,
       unknown,
+      /** @deprecated */
+      matched: verified,
+      /** @deprecated */
+      detected: verified,
+      /** @deprecated */
+      needsReview: reviewRequired,
+      /** @deprecated */
+      mismatched: rejected,
       uploads,
       tips: [
         'Upload clear, high-contrast scans or photos of your documents.',

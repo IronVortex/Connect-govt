@@ -1,21 +1,24 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle2, CloudUpload, FileText, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { AlertCircle, CheckCircle2, CloudUpload, FileText, Loader2, XCircle } from 'lucide-react';
 import { RequiredDocument, UploadedDocument } from '@connect/types';
 import { Badge } from './Badge';
 import { cn } from '../lib/utils';
+
+export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
 
 export type UploadState = {
   fileName?: string;
   progress: number;
   message?: string;
   tone?: 'success' | 'error';
-  status?: 'MATCHED' | 'MISMATCHED' | 'UNKNOWN' | 'NEEDS_REVIEW' | 'DETECTED';
+  status?: VerificationStatus;
   detectedType?: string;
   confidence?: number;
   reasons?: string[];
+  extractedFields?: Record<string, unknown>;
+  matchesExpectedType?: boolean;
 };
 
 interface UploadCardProps {
@@ -28,7 +31,24 @@ interface UploadCardProps {
   onDragChange: (isDragging: boolean) => void;
 }
 
-const acceptedFormats = 'JPG, PNG, PDF';
+function formatFieldLabel(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (s) => s.toUpperCase())
+    .trim();
+}
+
+function getExtractedFieldEntries(fields?: Record<string, unknown>): Array<[string, string]> {
+  if (!fields) return [];
+  return Object.entries(fields)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .slice(0, 6)
+    .map(([key, value]) => {
+      if (Array.isArray(value)) return [formatFieldLabel(key), value.join(', ')];
+      if (typeof value === 'object') return [formatFieldLabel(key), JSON.stringify(value)];
+      return [formatFieldLabel(key), String(value)];
+    });
+}
 
 export const UploadCard: React.FC<UploadCardProps> = ({
   document,
@@ -44,6 +64,14 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   const confidence = state?.confidence ?? persistedUpload?.confidence ?? 0;
   const reasons = state?.reasons ?? persistedUpload?.detectionReasons ?? [];
   const progress = state?.progress ?? (persistedUpload ? 100 : 0);
+  const extractedEntries = getExtractedFieldEntries(state?.extractedFields);
+
+  const validationReasons = reasons.filter(
+    (r) =>
+      !r.startsWith('Visual features:') &&
+      !r.includes('verified successfully') &&
+      r.length > 0,
+  );
 
   return (
     <motion.article
@@ -88,7 +116,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
         <p className="mt-4 text-sm font-black text-slate-950">
           {isUploading ? 'Uploading and verifying...' : 'Drop file here or click to upload'}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">AI-assisted verification runs automatically after upload.</p>
+        <p className="mt-1 text-xs font-medium text-slate-500">Vision AI classification and OCR verification run automatically.</p>
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/png,image/jpeg"
@@ -112,8 +140,6 @@ export const UploadCard: React.FC<UploadCardProps> = ({
                 <p className="truncate text-sm font-black text-slate-950">{state?.fileName || persistedUpload?.filename}</p>
                 <p className="text-xs text-slate-500">
                   {persistedUpload ? `${(persistedUpload.size / 1024 / 1024).toFixed(2)} MB` : 'Preparing secure upload'}
-                  {detectedType ? ` · Detected as ${detectedType}` : ''}
-                  {confidence > 0 && ` (${confidence}% confidence)`}
                 </p>
               </div>
             </div>
@@ -131,17 +157,60 @@ export const UploadCard: React.FC<UploadCardProps> = ({
             </p>
           )}
 
-          {reasons && reasons.length > 0 && (
-            <div className="mt-4 space-y-2 rounded-lg bg-white p-3">
-              <p className="text-xs font-bold text-slate-700">Detection Details:</p>
-              <ul className="space-y-1">
-                {reasons.map((reason, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-xs text-slate-600">
-                    <span className="mt-1 inline-block h-1 w-1 rounded-full bg-slate-400" />
-                    {reason}
-                  </li>
-                ))}
-              </ul>
+          {detectedType && (
+            <div className="mt-4 space-y-3 rounded-xl bg-white p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Document Type</p>
+                  <p className="mt-0.5 text-sm font-black text-slate-900">{detectedType}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Confidence</p>
+                  <p className="mt-0.5 text-sm font-black text-slate-900">{confidence > 0 ? `${confidence}%` : '—'}</p>
+                </div>
+              </div>
+
+              {extractedEntries.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Extracted Information</p>
+                  <ul className="mt-2 space-y-1">
+                    {extractedEntries.map(([label, value]) => (
+                      <li key={label} className="flex gap-2 text-xs text-slate-700">
+                        <span className="font-semibold text-slate-500">{label}:</span>
+                        <span className="truncate">{value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {validationReasons.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Validation</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {validationReasons.map((reason, idx) => {
+                      const isPass = /detected|verified|passed|present/i.test(reason);
+                      return (
+                        <li key={idx} className="flex items-start gap-2 text-xs text-slate-600">
+                          {isPass ? (
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          ) : (
+                            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                          )}
+                          {reason}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {status && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p>
+                  <Badge status={status} />
+                </div>
+              )}
             </div>
           )}
 

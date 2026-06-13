@@ -1,17 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
-import { NO_TEXT_FOUND, type OcrExtractionResult } from './types/document-intelligence.types';
+import {
+  NO_TEXT_FOUND,
+  OcrBlock,
+  OcrExtractionResult,
+  OcrLine,
+  OcrPage,
+} from './types/document-intelligence.types';
+import { PreprocessingService } from './preprocessing.service';
 
 const MIN_DIGITAL_TEXT_LENGTH = 25;
-const MAX_PDF_OCR_PAGES = 3;
+const MAX_PDF_OCR_PAGES = 10;
 
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
 
+  constructor(private readonly preprocessingService: PreprocessingService) {}
+
   async extractFromFile(buffer: Buffer, mimeType?: string): Promise<OcrExtractionResult> {
     if (!buffer?.length) {
-      return { text: NO_TEXT_FOUND, imageProperties: {}, ocrConfidence: 0 };
+      return this.emptyResult(['Empty file — no content to process']);
     }
 
     if (mimeType === 'application/pdf') {
@@ -23,24 +32,7 @@ export class OcrService {
     }
 
     this.logger.warn(`Unsupported mime type for OCR: ${mimeType || 'unknown'}`);
-    return { text: NO_TEXT_FOUND, imageProperties: {}, ocrConfidence: 0 };
-  }
-
-  async preprocessImage(buffer: Buffer): Promise<Buffer> {
-    try {
-      return await sharp(buffer)
-        .resize({ width: 2200, withoutEnlargement: true })
-        .grayscale()
-        .median(3)
-        .normalize()
-        .sharpen({ sigma: 1 })
-        .gamma(1.1)
-        .toBuffer();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Image preprocessing failed, using original buffer: ${message}`);
-      return buffer;
-    }
+    return this.emptyResult([`Unsupported file type: ${mimeType || 'unknown'}`]);
   }
 
   normalizeText(text: string): string {
@@ -54,58 +46,69 @@ export class OcrService {
       .replace(/[|¦]/g, 'I')
       .replace(/[`'']/g, "'")
       .replace(/\n{3,}/g, '\n\n')
-      .replace(/([a-zA-Z])\s+([a-zA-Z])/g, '$1 $2')
       .trim();
   }
 
   private async extractFromImage(buffer: Buffer): Promise<OcrExtractionResult> {
-    let width: number | undefined;
-    let height: number | undefined;
+    const qualityIssues = await this.preprocessingService.assessImageQuality(buffer);
+    const preprocessed = await this.preprocessingService.preprocessForOcr(buffer);
+    const ocrResult = await this.performDetailedOcr(preprocessed.buffer, 1);
 
-    try {
-      const metadata = await sharp(buffer).metadata();
-      width = metadata.width;
-      height = metadata.height;
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to read image metadata: ${message}`);
+    if (!ocrResult.text.trim() && qualityIssues.length === 0) {
+      qualityIssues.push('Text unreadable — no characters detected after preprocessing');
     }
 
-    const preprocessed = await this.preprocessImage(buffer);
-    const ocrResult = await this.performOcr(preprocessed);
+    const text = this.normalizeText(ocrResult.text);
+    const confidence = ocrResult.confidence;
 
     return {
-      text: this.normalizeText(ocrResult.text),
+      text,
+      confidence,
+      pages: ocrResult.pages,
+      blocks: ocrResult.blocks,
+      lines: ocrResult.lines,
+      qualityIssues,
       imageProperties: {
-        width,
-        height,
-        aspect: width && height ? width / height : undefined,
+        width: preprocessed.width,
+        height: preprocessed.height,
+        aspect: preprocessed.aspect,
       },
-      ocrConfidence: ocrResult.confidence,
+      ocrConfidence: confidence,
     };
   }
 
   private async extractFromPdf(buffer: Buffer): Promise<OcrExtractionResult> {
+    const qualityIssues: string[] = [];
+    const allPages: OcrPage[] = [];
+    const allBlocks: OcrBlock[] = [];
+    const allLines: OcrLine[] = [];
+    const textParts: string[] = [];
+    const confidences: number[] = [];
     let width: number | undefined;
     let height: number | undefined;
-    const textParts: string[] = [];
-    let ocrConfidence = 0;
 
     try {
       const digitalText = await this.extractDigitalPdfText(buffer);
       if (digitalText.length >= MIN_DIGITAL_TEXT_LENGTH) {
         textParts.push(digitalText);
+        confidences.push(95);
         this.logger.log(`PDF digital text extracted (${digitalText.length} chars)`);
       }
 
       if (this.needsOcrFallback(textParts.join('\n'))) {
-        const ocrPages = await this.extractPdfPagesWithOcr(buffer);
-        if (ocrPages.text) {
-          textParts.push(ocrPages.text);
+        const ocrPages = await this.extractAllPdfPagesWithOcr(buffer);
+        for (const page of ocrPages.pages) {
+          allPages.push(page);
+          allBlocks.push(...page.blocks);
+          allLines.push(...page.lines);
+          if (page.text.trim()) {
+            textParts.push(page.text);
+            confidences.push(page.confidence);
+          }
         }
-        ocrConfidence = ocrPages.confidence;
         width = ocrPages.width;
         height = ocrPages.height;
+        qualityIssues.push(...ocrPages.qualityIssues);
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -114,19 +117,36 @@ export class OcrService {
       const fallbackText = await this.extractWithPdfParse(buffer);
       if (fallbackText) {
         textParts.push(fallbackText);
+        confidences.push(70);
+      } else {
+        qualityIssues.push('PDF could not be parsed — file may be corrupted or encrypted');
       }
     }
 
     const merged = this.mergeExtractedParts(textParts);
+    const text = this.normalizeText(merged);
+    const confidence =
+      confidences.length > 0
+        ? confidences.reduce((sum, v) => sum + v, 0) / confidences.length
+        : 0;
+
+    if (text === NO_TEXT_FOUND) {
+      qualityIssues.push('No readable text found — PDF may be scanned at low quality or blank');
+    }
 
     return {
-      text: this.normalizeText(merged),
+      text,
+      confidence,
+      pages: allPages,
+      blocks: allBlocks,
+      lines: allLines,
+      qualityIssues: [...new Set(qualityIssues)],
       imageProperties: {
         width,
         height,
         aspect: width && height ? width / height : undefined,
       },
-      ocrConfidence,
+      ocrConfidence: confidence,
     };
   }
 
@@ -150,22 +170,21 @@ export class OcrService {
     return pages.join('\n');
   }
 
-  private async extractPdfPagesWithOcr(
+  private async extractAllPdfPagesWithOcr(
     buffer: Buffer,
-  ): Promise<{ text: string; confidence: number; width?: number; height?: number }> {
+  ): Promise<{ pages: OcrPage[]; width?: number; height?: number; qualityIssues: string[] }> {
     const pdfjs = await this.loadPdfJs();
     const napiCanvas = require('@napi-rs/canvas');
     const pdfDoc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
     const pagesToProcess = Math.min(pdfDoc.numPages, MAX_PDF_OCR_PAGES);
-
-    const pageTexts: string[] = [];
-    const confidences: number[] = [];
+    const pages: OcrPage[] = [];
+    const qualityIssues: string[] = [];
     let width: number | undefined;
     let height: number | undefined;
 
     for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber++) {
       const page = await pdfDoc.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 2 });
+      const viewport = page.getViewport({ scale: 2.5 });
       if (pageNumber === 1) {
         width = viewport.width;
         height = viewport.height;
@@ -175,29 +194,92 @@ export class OcrService {
       const context = canvas.getContext('2d');
       await page.render({ canvasContext: context, viewport }).promise;
 
-      const preprocessed = await this.preprocessImage(canvas.toBuffer('image/png'));
-      const ocrResult = await this.performOcr(preprocessed);
-      if (ocrResult.text.trim()) {
-        pageTexts.push(ocrResult.text.trim());
-        confidences.push(ocrResult.confidence);
-      }
+      const pageBuffer = canvas.toBuffer('image/png');
+      const pageQuality = await this.preprocessingService.assessImageQuality(pageBuffer);
+      qualityIssues.push(...pageQuality);
+
+      const preprocessed = await this.preprocessingService.preprocessForOcr(pageBuffer);
+      const ocrResult = await this.performDetailedOcr(preprocessed.buffer, pageNumber);
+      pages.push(...ocrResult.pages);
     }
 
-    const confidence =
-      confidences.length > 0
-        ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length
-        : 0;
+    if (pdfDoc.numPages > MAX_PDF_OCR_PAGES) {
+      qualityIssues.push(
+        `Only first ${MAX_PDF_OCR_PAGES} of ${pdfDoc.numPages} pages were OCR processed`,
+      );
+    }
 
-    this.logger.log(
-      `PDF OCR completed for ${pagesToProcess} page(s), avg confidence=${confidence.toFixed(1)}`,
-    );
+    this.logger.log(`PDF OCR completed for ${pagesToProcess} page(s)`);
 
-    return {
-      text: pageTexts.join('\n'),
-      confidence,
-      width,
-      height,
-    };
+    return { pages, width, height, qualityIssues: [...new Set(qualityIssues)] };
+  }
+
+  private async performDetailedOcr(
+    buffer: Buffer,
+    pageNumber: number,
+  ): Promise<{
+    text: string;
+    confidence: number;
+    pages: OcrPage[];
+    blocks: OcrBlock[];
+    lines: OcrLine[];
+  }> {
+    try {
+      const { createWorker } = require('tesseract.js');
+      const worker = await createWorker('eng');
+      const { data } = await worker.recognize(buffer);
+      await worker.terminate();
+
+      const blocks: OcrBlock[] = [];
+      const lines: OcrLine[] = [];
+
+      for (const block of data.blocks || []) {
+        const blockEntry: OcrBlock = {
+          text: block.text || '',
+          confidence: block.confidence ?? 0,
+          bbox: block.bbox || { x0: 0, y0: 0, x1: 0, y1: 0 },
+        };
+        if (blockEntry.text.trim()) blocks.push(blockEntry);
+      }
+
+      for (const line of data.lines || []) {
+        const lineBlocks: OcrBlock[] = [];
+        for (const word of line.words || []) {
+          lineBlocks.push({
+            text: word.text || '',
+            confidence: word.confidence ?? 0,
+            bbox: word.bbox || { x0: 0, y0: 0, x1: 0, y1: 0 },
+          });
+        }
+        if ((line.text || '').trim()) {
+          lines.push({
+            text: line.text || '',
+            confidence: line.confidence ?? 0,
+            blocks: lineBlocks,
+          });
+        }
+      }
+
+      const page: OcrPage = {
+        pageNumber,
+        text: data.text || '',
+        confidence: data.confidence ?? 0,
+        lines,
+        blocks,
+      };
+
+      return {
+        text: data.text || '',
+        confidence: typeof data.confidence === 'number' ? data.confidence : 0,
+        pages: [page],
+        blocks,
+        lines,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Tesseract OCR failed: ${message}`);
+      return { text: '', confidence: 0, pages: [], blocks: [], lines: [] };
+    }
   }
 
   private async extractWithPdfParse(buffer: Buffer): Promise<string> {
@@ -247,17 +329,10 @@ export class OcrService {
   }
 
   private mergeExtractedParts(parts: string[]): string {
-    const uniqueParts = parts
-      .map(part => part.trim())
-      .filter(part => part.length > 0);
+    const uniqueParts = parts.map(part => part.trim()).filter(part => part.length > 0);
 
-    if (uniqueParts.length === 0) {
-      return '';
-    }
-
-    if (uniqueParts.length === 1) {
-      return uniqueParts[0];
-    }
+    if (uniqueParts.length === 0) return '';
+    if (uniqueParts.length === 1) return uniqueParts[0];
 
     const merged: string[] = [];
     for (const part of uniqueParts) {
@@ -266,30 +341,23 @@ export class OcrService {
         const longer = part.length < existing.length ? existing : part;
         return longer.includes(shorter) && shorter.length / longer.length > 0.7;
       });
-      if (!isDuplicate) {
-        merged.push(part);
-      }
+      if (!isDuplicate) merged.push(part);
     }
 
     return merged.join('\n');
   }
 
-  private async performOcr(buffer: Buffer): Promise<{ text: string; confidence: number }> {
-    try {
-      const { createWorker } = require('tesseract.js');
-      const worker = await createWorker('eng');
-      const { data } = await worker.recognize(buffer);
-      await worker.terminate();
-
-      return {
-        text: data.text || '',
-        confidence: typeof data.confidence === 'number' ? data.confidence : 0,
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Tesseract OCR failed: ${message}`);
-      return { text: '', confidence: 0 };
-    }
+  private emptyResult(qualityIssues: string[]): OcrExtractionResult {
+    return {
+      text: NO_TEXT_FOUND,
+      confidence: 0,
+      pages: [],
+      blocks: [],
+      lines: [],
+      qualityIssues,
+      imageProperties: {},
+      ocrConfidence: 0,
+    };
   }
 }
 
