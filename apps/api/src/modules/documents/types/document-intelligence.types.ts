@@ -35,6 +35,7 @@ export const KYC_DOCUMENT_TYPES = [
   'PASSPORT_PHOTO',
   'RESUME',
   'SUPPORTING_DOCUMENT',
+  'UTILITY_BILL',
   'UNKNOWN',
 ] as const;
 
@@ -104,6 +105,7 @@ export const DOCUMENT_TYPE_CATEGORIES: Record<KycDocumentType, DocumentCategory>
   PASSPORT_PHOTO: 'IMAGE',
   RESUME: 'GENERIC',
   SUPPORTING_DOCUMENT: 'GENERIC',
+  UTILITY_BILL: 'ADDRESS',
   UNKNOWN: 'GENERIC',
 };
 
@@ -149,6 +151,9 @@ export interface ValidationResult {
   valid: boolean;
   score: number;
   issues: string[];
+  hasRequiredIdentifiers?: boolean;
+  isStructureValid?: boolean;
+  hasAllRequiredFields?: boolean;
   /** @deprecated */
   isValid?: boolean;
   /** @deprecated */
@@ -296,6 +301,7 @@ export const DOCUMENT_TYPE_LABELS: Record<KycDocumentType, string> = {
   PASSPORT_PHOTO: 'Passport Size Photo',
   RESUME: 'Resume / CV',
   SUPPORTING_DOCUMENT: 'Other Supporting Document',
+  UTILITY_BILL: 'Utility Bill',
   UNKNOWN: 'Unknown',
 };
 
@@ -362,6 +368,7 @@ export const LABEL_TO_KYC_TYPE: Record<string, KycDocumentType> = {
   resume: 'RESUME',
   cv: 'RESUME',
   ageproof: 'BIRTH_CERTIFICATE',
+  utilitybill: 'UTILITY_BILL',
   othersupportingdocument: 'SUPPORTING_DOCUMENT',
   supportingdocument: 'SUPPORTING_DOCUMENT',
   unknown: 'UNKNOWN',
@@ -377,6 +384,11 @@ export const DOCUMENT_TYPE_ALIASES: Partial<Record<KycDocumentType, KycDocumentT
   VEHICLE_INSURANCE: ['INSURANCE_CERTIFICATE'],
   BANK_PASSBOOK: ['BANK_STATEMENT'],
   BANK_STATEMENT: ['BANK_PASSBOOK'],
+  UTILITY_BILL: ['ELECTRICITY_BILL', 'WATER_BILL', 'GAS_BILL', 'ADDRESS_PROOF', 'PROPERTY_TAX_RECEIPT'],
+  ELECTRICITY_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
+  WATER_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
+  GAS_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
+  ADDRESS_PROOF: ['UTILITY_BILL', 'ELECTRICITY_BILL', 'WATER_BILL', 'GAS_BILL', 'PROPERTY_TAX_RECEIPT'],
 };
 
 export function normalizeDocumentType(input?: string): KycDocumentType | undefined {
@@ -395,8 +407,9 @@ export function typesMatchExpected(
 ): boolean {
   if (!expected || detected === 'UNKNOWN') return false;
   if (detected === expected) return true;
-  const aliases = DOCUMENT_TYPE_ALIASES[expected] || [];
-  return aliases.includes(detected);
+  const expectedAliases = DOCUMENT_TYPE_ALIASES[expected] || [];
+  const detectedAliases = DOCUMENT_TYPE_ALIASES[detected] || [];
+  return expectedAliases.includes(detected) || detectedAliases.includes(expected);
 }
 
 export function applyConfidenceThreshold(confidence: number): KycDocumentType | 'STRONG' | 'REVIEW' | 'UNKNOWN_LEVEL' {

@@ -42,6 +42,9 @@ export class ValidationService {
           detectionConfidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH
             ? ['Portrait photograph detected']
             : ['Portrait photograph requires manual review'],
+        hasRequiredIdentifiers: false,
+        isStructureValid: false,
+        hasAllRequiredFields: false,
       };
     }
 
@@ -50,6 +53,9 @@ export class ValidationService {
         valid: false,
         score: Math.min(detectionConfidence, 35),
         issues: ['No readable text found in document'],
+        hasRequiredIdentifiers: false,
+        isStructureValid: false,
+        hasAllRequiredFields: false,
       };
     }
 
@@ -58,6 +64,9 @@ export class ValidationService {
         valid: false,
         score: Math.min(detectionConfidence, 40),
         issues: ['Unable to classify document type with sufficient confidence'],
+        hasRequiredIdentifiers: false,
+        isStructureValid: false,
+        hasAllRequiredFields: false,
       };
     }
 
@@ -67,51 +76,149 @@ export class ValidationService {
       return {
         valid: false,
         score: detectionConfidence,
-        issues: ['Uploaded document does not match selected document type'],
+        issues: [`Uploaded document type ${documentType} does not match expected type ${normalizedExpected}`],
+        hasRequiredIdentifiers: false,
+        isStructureValid: false,
+        hasAllRequiredFields: false,
       };
     }
 
-    if (STRICT_IDENTITY_TYPES.has(documentType)) {
-      return this.validateIdentityDocument(documentType, extractedData, detectionConfidence);
+    let hasRequiredIdentifiers = false;
+    let isStructureValid = true;
+    let hasAllRequiredFields = false;
+    const issues: string[] = [];
+
+    // Evaluate based on documentType
+    switch (documentType) {
+      case 'AADHAAR': {
+        const idRaw = extractedData.idNumber ? String(extractedData.idNumber).replace(/\s/g, '') : '';
+        const hasIdFormat = /^\d{12}$/.test(idRaw);
+        const hasKeywords = /aadhaar|aadhar|uidai|unique\s*identification/i.test(text);
+        hasRequiredIdentifiers = hasIdFormat && hasKeywords;
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.gender);
+        if (!hasIdFormat) issues.push('Invalid or missing Aadhaar 12-digit number');
+        if (!hasKeywords) issues.push('Aadhaar / UIDAI keywords not detected');
+        if (!extractedData.name) issues.push('Name not found');
+        if (!extractedData.dob) issues.push('Date of birth not found');
+        break;
+      }
+      case 'PAN': {
+        const idRaw = extractedData.idNumber ? String(extractedData.idNumber).toUpperCase() : '';
+        const hasIdFormat = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(idRaw);
+        const hasKeywords = /income\s*tax|permanent\s*account|tax\s*department/i.test(text);
+        hasRequiredIdentifiers = hasIdFormat && hasKeywords;
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.idNumber);
+        if (!hasIdFormat) issues.push('Invalid or missing PAN number (format: ABCDE1234F)');
+        if (!hasKeywords) issues.push('Income Tax Department keywords not detected');
+        if (!extractedData.name) issues.push('Name not found');
+        break;
+      }
+      case 'PASSPORT': {
+        const idRaw = extractedData.idNumber ? String(extractedData.idNumber).toUpperCase() : '';
+        const hasIdFormat = /^[A-Z][0-9]{7}$/.test(idRaw);
+        const hasKeywords = /passport|republic\s*of\s*india|external\s*affairs/i.test(text);
+        hasRequiredIdentifiers = hasIdFormat && hasKeywords;
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.idNumber);
+        if (!hasIdFormat) issues.push('Invalid or missing passport number');
+        if (!hasKeywords) issues.push('Passport keywords not detected');
+        if (!extractedData.name) issues.push('Name not found');
+        if (!extractedData.dob) issues.push('Date of birth not found');
+        break;
+      }
+      case 'DRIVING_LICENSE': {
+        const hasKeywords = /driving\s*licen[cs]e|licence\s*number|dl\s*no/i.test(text);
+        hasRequiredIdentifiers = Boolean(extractedData.idNumber) && hasKeywords;
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.idNumber);
+        if (!extractedData.idNumber) issues.push('Driving license number not found');
+        if (!hasKeywords) issues.push('Driving license keywords not detected');
+        if (!extractedData.name) issues.push('Name not found');
+        if (!extractedData.dob) issues.push('Date of birth not found');
+        break;
+      }
+      case 'BIRTH_CERTIFICATE': {
+        const hasKeywords = /birth\s*certificate|certificate\s*of\s*birth/i.test(text);
+        hasRequiredIdentifiers = hasKeywords && Boolean(extractedData.registrationNumber || extractedData.idNumber || extractedData.dob);
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && /father|mother|parent/i.test(text));
+        if (!hasKeywords) issues.push('Birth certificate keywords not detected');
+        if (!extractedData.dob) issues.push('Date of birth not found');
+        if (!extractedData.name) issues.push('Name not found');
+        break;
+      }
+      case 'MARKS_CARD':
+      case 'SSLC_MARKS':
+      case 'PUC_MARKS':
+      case 'DEGREE_CERTIFICATE': {
+        const hasKeywords = /marks\s*card|marksheet|statement\s*of\s*marks|sslc|puc|degree|result/i.test(text);
+        const hasMarks = (extractedData.subjects && extractedData.subjects.length > 0) || Boolean(extractedData.cgpa || extractedData.sgpa || (extractedData.marks && Object.keys(extractedData.marks).length > 0));
+        hasRequiredIdentifiers = hasKeywords && hasMarks;
+        hasAllRequiredFields = Boolean(extractedData.studentName || extractedData.name);
+        if (!hasKeywords) issues.push('Academic transcript keywords not detected');
+        if (!hasMarks) issues.push('Marks or grade details not found');
+        if (!hasAllRequiredFields) issues.push('Candidate / Student name not found');
+        break;
+      }
+      case 'BANK_PASSBOOK':
+      case 'BANK_STATEMENT': {
+        const hasIfsc = extractedData.ifscCode ? /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(String(extractedData.ifscCode)) : false;
+        hasRequiredIdentifiers = Boolean(extractedData.accountNumber && hasIfsc);
+        hasAllRequiredFields = Boolean((extractedData.accountHolderName || extractedData.name) && (extractedData.bankName || extractedData.ifscCode));
+        if (!extractedData.accountNumber) issues.push('Account number not found');
+        if (!hasIfsc) issues.push('IFSC code not found or invalid');
+        break;
+      }
+      case 'UTILITY_BILL':
+      case 'ELECTRICITY_BILL':
+      case 'WATER_BILL':
+      case 'GAS_BILL': {
+        const hasKeywords = /utility|bill|bescom|electricity|water|gas|charges|rr\s*no|consumer/i.test(text);
+        hasRequiredIdentifiers = hasKeywords && Boolean(extractedData.idNumber);
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.address);
+        if (!extractedData.idNumber) issues.push('Consumer or bill number not found');
+        if (!extractedData.name) issues.push('Customer name not found');
+        if (!extractedData.address) issues.push('Address not found');
+        break;
+      }
+      case 'INCOME_CERTIFICATE': {
+        const hasKeywords = /income\s*certificate|tahsildar|annual\s*income/i.test(text);
+        hasRequiredIdentifiers = hasKeywords && Boolean(extractedData.incomeValue);
+        hasAllRequiredFields = Boolean(extractedData.applicantName || extractedData.name);
+        if (!extractedData.incomeValue) issues.push('Annual income value not found');
+        if (!hasKeywords) issues.push('Income certificate keywords not detected');
+        break;
+      }
+      case 'VOTER_ID': {
+        const idRaw = extractedData.idNumber ? String(extractedData.idNumber).toUpperCase() : '';
+        const hasIdFormat = /^[A-Z]{3}[0-9]{7}$/.test(idRaw);
+        const hasKeywords = /voter\s*id|election\s*commission|epic/i.test(text);
+        hasRequiredIdentifiers = hasIdFormat && hasKeywords;
+        hasAllRequiredFields = Boolean(extractedData.name && extractedData.idNumber);
+        if (!hasIdFormat) issues.push('Invalid or missing EPIC number');
+        if (!hasKeywords) issues.push('Voter ID keywords not detected');
+        if (!extractedData.name) issues.push('Name not found');
+        break;
+      }
+      default: {
+        const hasAnyField = Object.values(extractedData).some(v => this.hasValue(v));
+        hasRequiredIdentifiers = hasAnyField;
+        hasAllRequiredFields = hasAnyField;
+        break;
+      }
     }
 
-    if (MARKS_CARD_TYPES.has(documentType)) {
-      return this.validateMarksCard(extractedData, text, detectionConfidence);
-    }
+    isStructureValid = issues.length === 0;
 
-    if (documentType === 'BIRTH_CERTIFICATE') {
-      return this.validateBirthCertificate(extractedData, detectionConfidence);
-    }
+    const baseScore = detectionConfidence * 0.6 + (hasRequiredIdentifiers ? 25 : 0) + (hasAllRequiredFields ? 15 : 0);
+    const score = Math.round(Math.min(100, Math.max(0, baseScore)));
+    const valid = hasRequiredIdentifiers && hasAllRequiredFields && isStructureValid && score >= CONFIDENCE_THRESHOLDS.STRONG_MATCH;
 
-    if (documentType === 'BANK_PASSBOOK' || documentType === 'BANK_STATEMENT') {
-      return this.validateBankDocument(extractedData, detectionConfidence);
-    }
-
-    if (documentType === 'ADDRESS_PROOF') {
-      return this.validateAddressProof(extractedData, text, detectionConfidence);
-    }
-
-    if (documentType === 'INCOME_CERTIFICATE') {
-      return this.validateIncomeCertificate(extractedData, detectionConfidence);
-    }
-
-    if (documentType === 'VACCINATION_RECORD') {
-      return this.validateVaccinationRecord(extractedData, detectionConfidence);
-    }
-
-    if (
-      documentType === 'INSURANCE_CERTIFICATE' ||
-      documentType === 'HEALTH_INSURANCE_CARD' ||
-      documentType === 'VEHICLE_INSURANCE'
-    ) {
-      return this.validateInsurance(extractedData, detectionConfidence);
-    }
-
-    if (documentType === 'INVOICE') {
-      return this.validateInvoice(extractedData, detectionConfidence);
-    }
-
-    return this.validateGeneralDocument(documentType, extractedData, detectionConfidence);
+    return {
+      valid,
+      score,
+      issues: issues.length ? issues : [`${documentType} verified successfully`],
+      hasRequiredIdentifiers,
+      isStructureValid,
+      hasAllRequiredFields,
+    };
   }
 
   parseFields(documentType: KycDocumentType, text: string): ExtractedDocumentData {
@@ -214,6 +321,7 @@ export class ValidationService {
           ]),
         };
 
+      case 'UTILITY_BILL':
       case 'ADDRESS_PROOF':
       case 'ELECTRICITY_BILL':
       case 'WATER_BILL':
@@ -223,6 +331,19 @@ export class ValidationService {
           address:
             this.extractLabeledValue(text, ['address', 'residential address', 'permanent address']) ||
             this.extractAddressBlock(text),
+          idNumber:
+            this.extractLabeledValue(text, [
+              'consumer number',
+              'consumer no',
+              'consumer id',
+              'rr no',
+              'rr number',
+              'bill number',
+              'bill no',
+              'account number',
+              'account no',
+            ]) || this.firstMatch(text, /\b\d{10,12}\b/),
+          amount: this.firstMatch(text, /(?:rs\.?|inr|₹)\s*([0-9,]+(?:\.\d{2})?)/i),
         };
 
       case 'BANK_PASSBOOK':
@@ -289,184 +410,6 @@ export class ValidationService {
           ]),
         };
     }
-  }
-
-  private validateIdentityDocument(
-    documentType: KycDocumentType,
-    data: ExtractedDocumentData,
-    confidence: number,
-  ): ValidationResult {
-    const issues: string[] = [];
-    const missing = this.findMissingFields(documentType, data);
-    if (missing.length > 0) issues.push(`Missing fields: ${missing.join(', ')}`);
-    issues.push(...this.validateFormats(documentType, data));
-
-    const fieldScore = this.fieldCompletenessScore(documentType, data);
-    const score = Math.round(
-      Math.min(100, confidence * 0.55 + fieldScore * 30 + (issues.length === 0 ? 15 : 0)),
-    );
-
-    return {
-      valid: issues.length === 0 && score >= CONFIDENCE_THRESHOLDS.STRONG_MATCH,
-      score,
-      issues: issues.length ? issues : [`${documentType} verified with required fields present`],
-    };
-  }
-
-  private validateMarksCard(
-    data: ExtractedDocumentData,
-    text: string,
-    confidence: number,
-  ): ValidationResult {
-    const issues: string[] = [];
-    const hasTable = /\b\d{1,3}\b.*\b\d{1,3}\b/m.test(text) || (data.marks && Object.keys(data.marks).length > 0);
-    const hasStudent = Boolean(data.studentName || data.name);
-    const hasMarks = hasTable || Boolean(data.cgpa || data.sgpa);
-
-    if (!hasStudent) issues.push('Student information not found');
-    if (!hasMarks) issues.push('Marks table or grade information not detected');
-    if (!hasTable && text.length > 100) issues.push('Academic table structure not clearly detected');
-
-    const score = Math.round(
-      confidence * (issues.length === 0 ? 0.95 : issues.length === 1 ? 0.8 : 0.65),
-    );
-
-    return {
-      valid: issues.length === 0 && score >= CONFIDENCE_THRESHOLDS.STRONG_MATCH,
-      score,
-      issues: issues.length ? issues : ['Academic structure detected', 'Marks table detected'],
-    };
-  }
-
-  private validateBirthCertificate(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.dob && !data.name) issues.push('Date of birth not found');
-    if (!data.registrationNumber && !data.idNumber) issues.push('Registration details not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.95 : 0.7));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateBankDocument(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.accountNumber) issues.push('Account number not found');
-    if (!data.ifscCode) issues.push('IFSC code not found');
-    if (!data.bankName && !data.accountHolderName) issues.push('Bank name or account holder not found');
-    if (data.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(data.ifscCode)) {
-      issues.push('IFSC code format is invalid');
-    }
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.95 : 0.75));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateAddressProof(
-    data: ExtractedDocumentData,
-    text: string,
-    confidence: number,
-  ): ValidationResult {
-    const issues: string[] = [];
-    if (!data.address && text.length < 80) issues.push('Address not found');
-    if (!data.name) issues.push('Name not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.92 : 0.72));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateIncomeCertificate(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.applicantName && !data.name) issues.push('Applicant name not found');
-    if (!data.incomeValue) issues.push('Income value not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.93 : 0.72));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateVaccinationRecord(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.beneficiaryName && !data.name) issues.push('Beneficiary name not found');
-    if (!data.vaccineDetails) issues.push('Vaccine details not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.92 : 0.72));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateInsurance(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.policyNumber) issues.push('Policy number not found');
-    if (!data.policyHolderName && !data.name) issues.push('Policy holder name not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.93 : 0.73));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateInvoice(data: ExtractedDocumentData, confidence: number): ValidationResult {
-    const issues: string[] = [];
-    if (!data.invoiceNumber) issues.push('Invoice number not found');
-    if (!data.dealerName) issues.push('Dealer or vendor name not found');
-
-    const score = Math.round(confidence * (issues.length === 0 ? 0.92 : 0.74));
-    return { valid: issues.length === 0, score, issues };
-  }
-
-  private validateGeneralDocument(
-    documentType: KycDocumentType,
-    data: ExtractedDocumentData,
-    confidence: number,
-  ): ValidationResult {
-    const hasAnyField = Object.values(data).some(v => this.hasValue(v));
-    const score = Math.round(confidence * (hasAnyField ? 0.92 : 0.78));
-    const valid = score >= CONFIDENCE_THRESHOLDS.STRONG_MATCH && hasAnyField;
-
-    return {
-      valid,
-      score,
-      issues: valid
-        ? [`${documentType} identified with sufficient confidence`]
-        : [`${documentType} detected but requires manual review`],
-    };
-  }
-
-  private validateFormats(documentType: KycDocumentType, data: ExtractedDocumentData): string[] {
-    const issues: string[] = [];
-
-    if (documentType === 'PAN' && data.idNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(data.idNumber)) {
-      issues.push('PAN number format is invalid');
-    }
-
-    if (documentType === 'AADHAAR' && data.idNumber) {
-      const digits = data.idNumber.replace(/\s/g, '');
-      if (!/^\d{12}$/.test(digits)) issues.push('Aadhaar number must be 12 digits');
-    }
-
-    if (documentType === 'PASSPORT' && data.idNumber && !/^[A-Z][0-9]{7}$/.test(data.idNumber)) {
-      issues.push('Passport number format is invalid');
-    }
-
-    if (documentType === 'VOTER_ID' && data.idNumber && !/^[A-Z]{3}[0-9]{7}$/.test(data.idNumber)) {
-      issues.push('EPIC number format is invalid');
-    }
-
-    if (data.dob && !this.isValidDate(data.dob)) {
-      issues.push('Date of birth format is invalid');
-    }
-
-    return issues;
-  }
-
-  private findMissingFields(documentType: KycDocumentType, data: ExtractedDocumentData): string[] {
-    const required: string[] = ['name', 'idNumber'];
-    if (['AADHAAR', 'PASSPORT', 'DRIVING_LICENSE', 'VOTER_ID'].includes(documentType)) {
-      required.push('dob');
-    }
-
-    return required.filter(field => !this.hasValue(data[field as keyof ExtractedDocumentData]));
-  }
-
-  private fieldCompletenessScore(documentType: KycDocumentType, data: ExtractedDocumentData): number {
-    const missing = this.findMissingFields(documentType, data);
-    const totalRequired = documentType === 'PAN' ? 2 : 3;
-    return (totalRequired - missing.length) / totalRequired;
   }
 
   private extractSubjects(text: string): string[] {

@@ -74,10 +74,12 @@ export class VerificationService {
   ): VerificationStatus {
     const { confidence, documentType } = classification;
 
+    // Unknown or very low confidence always results in UNKNOWN status
     if (documentType === 'UNKNOWN' || confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
       return 'UNKNOWN';
     }
 
+    // Strict expected type mismatch rejection
     if (expectedType && !matchesExpectedType) {
       return 'REJECTED';
     }
@@ -86,28 +88,34 @@ export class VerificationService {
     const isPhotoType = documentType === 'PASSPORT_PHOTO';
     const ocrAcceptable = isPhotoType || hasReadableText;
 
+    // OCR quality issues handling
     if (!ocrAcceptable && ocr.qualityIssues.length > 0) {
+      // If OCR is poor but confidence is strong and it's a photo, still VERIFIED
       if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH && isPhotoType) {
         return 'VERIFIED';
       }
+      // Otherwise downgrade to REVIEW_REQUIRED
       return confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED ? 'REVIEW_REQUIRED' : 'UNKNOWN';
     }
 
-    if (
-      confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH &&
-      validation.valid &&
-      matchesExpectedType !== false
-    ) {
-      return 'VERIFIED';
+    // High confidence scenarios
+    if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH) {
+      if (validation.valid) {
+        return 'VERIFIED';
+      }
+      // Validation failed despite strong confidence -> REJECTED
+      return 'REJECTED';
     }
-
+    // Medium confidence scenarios
     if (confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
-      if (!validation.valid || !matchesExpectedType) {
+      // If validation failed or expected type mismatch, reject
+      if (!validation.valid) {
         return expectedType && !matchesExpectedType ? 'REJECTED' : 'REVIEW_REQUIRED';
       }
       return 'REVIEW_REQUIRED';
     }
 
+    // Default fallback
     return 'UNKNOWN';
   }
 
