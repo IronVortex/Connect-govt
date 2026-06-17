@@ -129,7 +129,7 @@ export class DocumentsService {
     const isNonTextType = NON_TEXT_DOCUMENT_TYPES.has(classification.documentType);
     let ocrMs = 0;
 
-    let ocrResult: Awaited<ReturnType<typeof this.ocrService.extractFromFile>>;
+    let ocrResult: any;
 
     if (isNonTextType) {
       this.logger.log(
