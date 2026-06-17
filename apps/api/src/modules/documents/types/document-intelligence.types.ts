@@ -253,6 +253,8 @@ export interface DocumentIntelligenceResponse {
 export interface LegacyAnalysisResult {
   detectedType: string;
   documentType: string;
+  /** Enum key for database storage (e.g., "PASSPORT_PHOTO") */
+  detectedTypeEnum?: KycDocumentType;
   verified: boolean;
   status: VerificationStatus;
   confidence: number;

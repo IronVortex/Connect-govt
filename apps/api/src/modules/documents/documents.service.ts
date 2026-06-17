@@ -291,6 +291,8 @@ export class DocumentsService {
     return {
       detectedType: displayType,
       documentType: displayType,
+      /** Store enum key for database persistence */
+      detectedTypeEnum: result.documentType,
       verified,
       status,
       confidence,

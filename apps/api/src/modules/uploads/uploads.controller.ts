@@ -111,7 +111,8 @@ export class UploadsController {
       path: storagePath,
       mimetype: file.mimetype,
       size: file.size,
-      detectedType: analysis.detectedType,
+      // Store enum key, not display label
+      detectedType: analysis.detectedTypeEnum || analysis.detectedType,
       detectionStatus: analysis.status,
       confidence: analysis.confidence,
       extractedText: analysis.extractedText,
