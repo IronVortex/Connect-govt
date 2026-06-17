@@ -17,8 +17,10 @@ import { VisionClassificationService } from './vision-classification.service';
 import { VerificationService } from './verification.service';
 import {
   DocumentIntelligenceResponse,
+  KycDocumentType,
   LegacyAnalysisResult,
   NO_TEXT_FOUND,
+  PipelineTimings,
 } from './types/document-intelligence.types';
 
 export interface ProcessDocumentInput {
@@ -29,6 +31,17 @@ export interface ProcessDocumentInput {
   userId?: string;
   persist?: boolean;
 }
+
+/**
+ * Document types that contain no extractable text.
+ * OCR is skipped entirely for these — returning empty text immediately.
+ */
+const NON_TEXT_DOCUMENT_TYPES = new Set<KycDocumentType>([
+  'PASSPORT_PHOTO',
+  'SUPPORTING_DOCUMENT',
+]);
+
+const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
 @Injectable()
 export class DocumentsService {
@@ -81,49 +94,91 @@ export class DocumentsService {
   }
 
   /**
-   * Pipeline: Preprocessing → Vision Classification → OCR → Structured Extraction → Validation → Verification
+   * Pipeline: Preprocessing → Vision Classification → OCR → Validation → Verification
+   *
+   * OCR is skipped entirely for non-text document types (e.g. PASSPORT_PHOTO)
+   * to avoid spending 30-45s on Tesseract for images with no text.
    */
   async processDocument(input: ProcessDocumentInput): Promise<DocumentIntelligenceResponse> {
+    const totalStart = performance.now();
     const { buffer, mimeType, expectedDocumentType, userId, persist = false } = input;
 
     if (!buffer?.length) {
       throw new BadRequestException('File content is required for document intelligence processing');
     }
 
-    // Step 1: Vision AI classification (before OCR)
+    this.logger.log(
+      `[UPLOAD] Start — file="${input.filename}" mimeType="${mimeType}" expectedType="${expectedDocumentType}"`,
+    );
+
+    // ── Step 1: Vision AI classification ────────────────────────────────────
+    const tClassStart = performance.now();
     const classification = await this.visionClassificationService.classify(
       buffer,
       mimeType,
       expectedDocumentType,
     );
+    const classificationMs = Math.round(performance.now() - tClassStart);
 
     this.logger.log(
-      `Classification: type=${classification.documentType}, confidence=${classification.confidence}%, ` +
-        `matchesExpected=${classification.matchesExpectedType}`,
+      `[CLASSIFICATION] ${classificationMs}ms — type=${classification.documentType} ` +
+        `confidence=${classification.confidence}% matchesExpected=${classification.matchesExpectedType}`,
     );
 
-    // Step 2: OCR text extraction (after classification)
-    const ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
+    // ── Step 2: OCR — skipped for non-text document types ───────────────────
+    const isNonTextType = NON_TEXT_DOCUMENT_TYPES.has(classification.documentType);
+    let ocrMs = 0;
+
+    let ocrResult: Awaited<ReturnType<typeof this.ocrService.extractFromFile>>;
+
+    if (isNonTextType) {
+      this.logger.log(
+        `[OCR] Skipped — ${classification.documentType} is a non-text document type`,
+      );
+      ocrResult = {
+        text: NO_TEXT_FOUND,
+        confidence: 0,
+        pages: [],
+        blocks: [],
+        lines: [],
+        qualityIssues: [],
+        imageProperties: {},
+        ocrConfidence: 0,
+      };
+    } else {
+      const tOcrStart = performance.now();
+      ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
+      ocrMs = Math.round(performance.now() - tOcrStart);
+      this.logger.log(
+        `[OCR] ${ocrMs}ms — chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
+      );
+    }
+
     const extractedText =
       ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
         ? ocrResult.text.slice(0, 5000)
         : NO_TEXT_FOUND;
 
-    // Step 3: Structured data extraction
+    // ── Step 3: Structured data extraction ──────────────────────────────────
     const extractedData = this.validationService.parseFields(
       classification.documentType,
       ocrResult.text,
     );
 
-    // Step 4: Validation rules
+    // ── Step 4: Validation rules ─────────────────────────────────────────────
+    const tValidStart = performance.now();
     const validation = this.validationService.validate(
       classification.documentType,
       ocrResult.text,
       classification.confidence,
       expectedDocumentType,
     );
+    const validationMs = Math.round(performance.now() - tValidStart);
+    this.logger.log(
+      `[VALIDATION] ${validationMs}ms — valid=${validation.valid} score=${validation.score}`,
+    );
 
-    // Step 5: Final verification result
+    // ── Step 5: Final verification result ───────────────────────────────────
     const verification = this.verificationService.resolve(
       classification,
       ocrResult,
@@ -132,12 +187,30 @@ export class DocumentsService {
       expectedDocumentType,
     );
 
+    this.logger.log(
+      `[VERIFICATION] status=${verification.status} verified=${verification.verified}`,
+    );
+
+    const totalMs = Math.round(performance.now() - totalStart);
+    const timings: PipelineTimings = {
+      preprocess: 0, // handled inside classification/ocr services
+      classification: classificationMs,
+      ocr: ocrMs,
+      validation: validationMs,
+      total: totalMs,
+    };
+
+    this.logger.log(
+      `[UPLOAD] Total: ${totalMs}ms | CLASSIFICATION: ${classificationMs}ms | OCR: ${ocrMs}ms | VALIDATION: ${validationMs}ms`,
+    );
+
     const response: DocumentIntelligenceResponse = {
       documentType: classification.documentType,
       extractedData,
       validation,
       extractedText,
       verification,
+      timings: IS_PRODUCTION ? undefined : timings,
     };
 
     if (persist && userId) {
@@ -230,6 +303,7 @@ export class DocumentsService {
       detectedFeatures: verification?.detectedFeatures,
       matchesExpectedType: verification?.matchesExpectedType,
       ocrQualityIssues: verification?.ocr.qualityIssues,
+      timings: result.timings,
     };
   }
 }

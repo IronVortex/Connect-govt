@@ -68,6 +68,56 @@ function normalizeLegacyStatus(status?: string): VerificationStatus {
   return map[status || ''] || 'UNKNOWN';
 }
 
+/** Maps raw backend enum keys to human-readable labels.
+ * Falls through for already-formatted strings (e.g. "Passport Size Photo"). */
+const DOCUMENT_TYPE_LABEL_MAP: Record<string, string> = {
+  AADHAAR: 'Aadhaar Card',
+  PAN: 'PAN Card',
+  PASSPORT: 'Passport',
+  DRIVING_LICENSE: 'Driving License',
+  VOTER_ID: 'Voter ID',
+  BIRTH_CERTIFICATE: 'Birth Certificate',
+  DEATH_CERTIFICATE: 'Death Certificate',
+  MARRIAGE_CERTIFICATE: 'Marriage Certificate',
+  MARKS_CARD: 'Marks Card',
+  SSLC_MARKS: 'SSLC / 10th Marks Card',
+  PUC_MARKS: 'PUC / 12th Marks Card',
+  DEGREE_CERTIFICATE: 'Degree Certificate',
+  TRANSFER_CERTIFICATE: 'Transfer Certificate',
+  STUDY_CERTIFICATE: 'Study Certificate',
+  RATION_CARD: 'Ration Card',
+  ELECTRICITY_BILL: 'Electricity Bill',
+  WATER_BILL: 'Water Bill',
+  GAS_BILL: 'Gas Connection Bill',
+  PROPERTY_TAX_RECEIPT: 'Property Tax Receipt',
+  ADDRESS_PROOF: 'Address Proof',
+  SALARY_SLIP: 'Salary Slip',
+  BANK_PASSBOOK: 'Bank Passbook',
+  BANK_STATEMENT: 'Bank Statement',
+  INCOME_CERTIFICATE: 'Income Certificate',
+  CASTE_CERTIFICATE: 'Caste Certificate',
+  DOMICILE_CERTIFICATE: 'Domicile Certificate',
+  RC_BOOK: 'RC Book / Registration Certificate',
+  VEHICLE_INSURANCE: 'Vehicle Insurance Certificate',
+  POLLUTION_CERTIFICATE: 'Pollution Certificate (PUC)',
+  INSURANCE_CERTIFICATE: 'Insurance Certificate',
+  HEALTH_INSURANCE_CARD: 'Health Insurance Card',
+  VACCINATION_RECORD: 'Previous Vaccination Record',
+  INVOICE: 'Invoice / Bill of Sale',
+  PASSPORT_PHOTO: 'Passport Size Photo',
+  RESUME: 'Resume / CV',
+  SUPPORTING_DOCUMENT: 'Other Supporting Document',
+  UTILITY_BILL: 'Utility Bill',
+  UNKNOWN: 'Unknown Document',
+};
+
+function resolveDocumentLabel(raw?: string): string {
+  if (!raw) return 'Unknown';
+  // If it's already a human-readable label (contains spaces or lowercase letters), pass through
+  if (DOCUMENT_TYPE_LABEL_MAP[raw]) return DOCUMENT_TYPE_LABEL_MAP[raw];
+  return raw;
+}
+
 function normalizeUploadResponse(data: any): {
   status: VerificationStatus;
   detectedType: string;
@@ -77,9 +127,10 @@ function normalizeUploadResponse(data: any): {
 } {
   return {
     status: normalizeLegacyStatus(data?.detectionStatus || data?.status),
-    detectedType: data?.detectedType || data?.documentType || 'Unknown',
+    detectedType: resolveDocumentLabel(data?.detectedType || data?.documentType),
     confidence: data?.confidence,
-    reasons: data?.detectionReasons,
+    // Live upload response uses `reasons`; persisted DB record uses `detectionReasons`
+    reasons: data?.reasons || data?.detectionReasons,
     extractedFields: data?.extractedFields,
   };
 }

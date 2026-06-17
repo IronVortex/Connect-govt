@@ -56,6 +56,22 @@ Rules:
 Respond ONLY with valid JSON:
 {"documentType":"TYPE","confidence":85,"reasoning":"...","detectedFeatures":["feature1","feature2"]}`;
 
+// ---------------------------------------------------------------------------
+// Module-level Tesseract singleton for the local classification fallback.
+// Only used when OpenAI is unavailable — prevents a 15-20s cold-start on that path.
+// ---------------------------------------------------------------------------
+let _classificationWorkerPromise: Promise<any> | null = null;
+
+async function getClassificationWorker(): Promise<any> {
+  if (!_classificationWorkerPromise) {
+    _classificationWorkerPromise = (async () => {
+      const { createWorker } = require('tesseract.js');
+      return createWorker('eng');
+    })();
+  }
+  return _classificationWorkerPromise;
+}
+
 @Injectable()
 export class VisionClassificationService {
   private readonly logger = new Logger(VisionClassificationService.name);
@@ -70,21 +86,38 @@ export class VisionClassificationService {
     mimeType?: string,
     expectedType?: string,
   ): Promise<VisionClassificationResult> {
+    const t0 = performance.now();
     const preprocessed = await this.preprocessingService.toClassificationImage(buffer, mimeType);
+    const tPreprocess = performance.now();
+    this.logger.log(`[CLASSIFICATION] Preprocess: ${Math.round(tPreprocess - t0)}ms`);
+
     const normalizedExpected = normalizeDocumentType(expectedType);
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (apiKey) {
       try {
+        const tAiStart = performance.now();
         const aiResult = await this.classifyWithOpenAI(preprocessed, apiKey, normalizedExpected);
-        if (aiResult) return aiResult;
+        if (aiResult) {
+          this.logger.log(
+            `[CLASSIFICATION] OpenAI: ${Math.round(performance.now() - tAiStart)}ms` +
+            ` — type=${aiResult.documentType} confidence=${aiResult.confidence}`,
+          );
+          return aiResult;
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`OpenAI vision classification failed, using local fallback: ${message}`);
+        this.logger.warn(`[CLASSIFICATION] OpenAI failed, using local fallback: ${message}`);
       }
     }
 
-    return this.classifyLocally(preprocessed, normalizedExpected, mimeType);
+    const tLocalStart = performance.now();
+    const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType);
+    this.logger.log(
+      `[CLASSIFICATION] Local fallback: ${Math.round(performance.now() - tLocalStart)}ms` +
+      ` — type=${localResult.documentType} confidence=${localResult.confidence}`,
+    );
+    return localResult;
   }
 
   toDisplayLabel(documentType: KycDocumentType): string {
@@ -185,7 +218,7 @@ export class VisionClassificationService {
     const matchesExpectedType = typesMatchExpected(documentType, expectedType);
 
     this.logger.log(
-      `Local vision classification: type=${documentType}, confidence=${confidence}, ` +
+      `[CLASSIFICATION] Local result: type=${documentType}, confidence=${confidence}, ` +
         `features=[${best.features.join(', ')}]`,
     );
 
@@ -382,10 +415,8 @@ export class VisionClassificationService {
 
   private async extractLayoutMetrics(buffer: Buffer): Promise<LayoutMetrics> {
     try {
-      const { createWorker } = require('tesseract.js');
-      const worker = await createWorker('eng');
+      const worker = await getClassificationWorker();
       const { data } = await worker.recognize(buffer);
-      await worker.terminate();
 
       const blocks = (data.blocks || []) as Array<{
         text?: string;

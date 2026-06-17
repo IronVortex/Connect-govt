@@ -231,12 +231,23 @@ export interface DocumentVerificationResult {
   reasons: string[];
 }
 
+/** Per-stage wall-clock times in milliseconds (included in non-production responses). */
+export interface PipelineTimings {
+  preprocess: number;
+  classification: number;
+  ocr: number;
+  validation: number;
+  total: number;
+}
+
 export interface DocumentIntelligenceResponse {
   documentType: KycDocumentType;
   extractedData: ExtractedDocumentData;
   validation: ValidationResult;
   extractedText: string;
   verification?: DocumentVerificationResult;
+  /** Only populated in non-production environments */
+  timings?: PipelineTimings;
 }
 
 export interface LegacyAnalysisResult {
@@ -254,6 +265,8 @@ export interface LegacyAnalysisResult {
   detectedFeatures?: string[];
   matchesExpectedType?: boolean;
   ocrQualityIssues?: string[];
+  /** Stage timings (ms) — only included outside production */
+  timings?: PipelineTimings;
 }
 
 export interface DetectionCandidate {

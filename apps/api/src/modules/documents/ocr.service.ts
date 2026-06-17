@@ -12,6 +12,24 @@ import { PreprocessingService } from './preprocessing.service';
 const MIN_DIGITAL_TEXT_LENGTH = 25;
 const MAX_PDF_OCR_PAGES = 10;
 
+// ---------------------------------------------------------------------------
+// Module-level Tesseract singleton
+// Keeping the worker alive between requests eliminates the 15-20s cold-start
+// that occurred when createWorker+terminate was called on every request.
+// ---------------------------------------------------------------------------
+let _tesseractWorkerPromise: Promise<any> | null = null;
+
+async function getTesseractWorker(): Promise<any> {
+  if (!_tesseractWorkerPromise) {
+    _tesseractWorkerPromise = (async () => {
+      const { createWorker } = require('tesseract.js');
+      const worker = await createWorker('eng');
+      return worker;
+    })();
+  }
+  return _tesseractWorkerPromise;
+}
+
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
@@ -50,9 +68,16 @@ export class OcrService {
   }
 
   private async extractFromImage(buffer: Buffer): Promise<OcrExtractionResult> {
+    const t0 = performance.now();
+
     const qualityIssues = await this.preprocessingService.assessImageQuality(buffer);
     const preprocessed = await this.preprocessingService.preprocessForOcr(buffer);
+    const tPreprocess = performance.now();
+    this.logger.log(`[OCR] Preprocess: ${Math.round(tPreprocess - t0)}ms`);
+
     const ocrResult = await this.performDetailedOcr(preprocessed.buffer, 1);
+    const tOcr = performance.now();
+    this.logger.log(`[OCR] Tesseract recognition: ${Math.round(tOcr - tPreprocess)}ms`);
 
     if (!ocrResult.text.trim() && qualityIssues.length === 0) {
       qualityIssues.push('Text unreadable — no characters detected after preprocessing');
@@ -60,6 +85,8 @@ export class OcrService {
 
     const text = this.normalizeText(ocrResult.text);
     const confidence = ocrResult.confidence;
+
+    this.logger.log(`[OCR] Image complete: ${Math.round(tOcr - t0)}ms — chars=${text.length}, confidence=${confidence.toFixed(1)}%`);
 
     return {
       text,
@@ -78,6 +105,7 @@ export class OcrService {
   }
 
   private async extractFromPdf(buffer: Buffer): Promise<OcrExtractionResult> {
+    const t0 = performance.now();
     const qualityIssues: string[] = [];
     const allPages: OcrPage[] = [];
     const allBlocks: OcrBlock[] = [];
@@ -92,11 +120,13 @@ export class OcrService {
       if (digitalText.length >= MIN_DIGITAL_TEXT_LENGTH) {
         textParts.push(digitalText);
         confidences.push(95);
-        this.logger.log(`PDF digital text extracted (${digitalText.length} chars)`);
+        this.logger.log(`[OCR] PDF digital text: ${Math.round(performance.now() - t0)}ms (${digitalText.length} chars)`);
       }
 
       if (this.needsOcrFallback(textParts.join('\n'))) {
+        const tOcrStart = performance.now();
         const ocrPages = await this.extractAllPdfPagesWithOcr(buffer);
+        this.logger.log(`[OCR] PDF OCR fallback: ${Math.round(performance.now() - tOcrStart)}ms`);
         for (const page of ocrPages.pages) {
           allPages.push(page);
           allBlocks.push(...page.blocks);
@@ -112,7 +142,7 @@ export class OcrService {
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`PDF extraction failed, trying pdf-parse fallback: ${message}`);
+      this.logger.error(`[OCR] PDF extraction failed, trying pdf-parse fallback: ${message}`);
 
       const fallbackText = await this.extractWithPdfParse(buffer);
       if (fallbackText) {
@@ -133,6 +163,8 @@ export class OcrService {
     if (text === NO_TEXT_FOUND) {
       qualityIssues.push('No readable text found — PDF may be scanned at low quality or blank');
     }
+
+    this.logger.log(`[OCR] PDF complete: ${Math.round(performance.now() - t0)}ms — chars=${text.length}`);
 
     return {
       text,
@@ -209,11 +241,15 @@ export class OcrService {
       );
     }
 
-    this.logger.log(`PDF OCR completed for ${pagesToProcess} page(s)`);
+    this.logger.log(`[OCR] PDF OCR completed for ${pagesToProcess} page(s)`);
 
     return { pages, width, height, qualityIssues: [...new Set(qualityIssues)] };
   }
 
+  /**
+   * Runs Tesseract recognition using the shared singleton worker.
+   * The worker is initialized once and reused — no per-request cold-start.
+   */
   private async performDetailedOcr(
     buffer: Buffer,
     pageNumber: number,
@@ -225,10 +261,8 @@ export class OcrService {
     lines: OcrLine[];
   }> {
     try {
-      const { createWorker } = require('tesseract.js');
-      const worker = await createWorker('eng');
+      const worker = await getTesseractWorker();
       const { data } = await worker.recognize(buffer);
-      await worker.terminate();
 
       const blocks: OcrBlock[] = [];
       const lines: OcrLine[] = [];
@@ -277,7 +311,9 @@ export class OcrService {
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Tesseract OCR failed: ${message}`);
+      this.logger.error(`[OCR] Tesseract recognition failed: ${message}`);
+      // Reset singleton so next request gets a fresh worker
+      _tesseractWorkerPromise = null;
       return { text: '', confidence: 0, pages: [], blocks: [], lines: [] };
     }
   }
@@ -289,7 +325,7 @@ export class OcrService {
       return (result.text || '').trim();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`pdf-parse fallback failed: ${message}`);
+      this.logger.warn(`[OCR] pdf-parse fallback failed: ${message}`);
       return '';
     }
   }

@@ -74,7 +74,9 @@ export class VerificationService {
   ): VerificationStatus {
     const { confidence, documentType } = classification;
 
-    // Unknown or very low confidence always results in UNKNOWN status
+    // ── Hard guard: UNKNOWN type can never be VERIFIED ──────────────────────
+    // Prevents contradictory states like:
+    //   Document Type: Unknown | Confidence: 92% | Status: Verified
     if (documentType === 'UNKNOWN' || confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
       return 'UNKNOWN';
     }
@@ -90,25 +92,28 @@ export class VerificationService {
 
     // OCR quality issues handling
     if (!ocrAcceptable && ocr.qualityIssues.length > 0) {
-      // If OCR is poor but confidence is strong and it's a photo, still VERIFIED
+      // Strong confidence photo types → VERIFIED even without readable text
       if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH && isPhotoType) {
         return 'VERIFIED';
       }
-      // Otherwise downgrade to REVIEW_REQUIRED
       return confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED ? 'REVIEW_REQUIRED' : 'UNKNOWN';
     }
 
     // High confidence scenarios
     if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH) {
+      // Photo-type documents don't require text validation to pass
+      if (isPhotoType) {
+        return 'VERIFIED';
+      }
       if (validation.valid) {
         return 'VERIFIED';
       }
-      // Validation failed despite strong confidence -> REJECTED
+      // Validation failed despite strong confidence → REJECTED
       return 'REJECTED';
     }
+
     // Medium confidence scenarios
     if (confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
-      // If validation failed or expected type mismatch, reject
       if (!validation.valid) {
         return expectedType && !matchesExpectedType ? 'REJECTED' : 'REVIEW_REQUIRED';
       }

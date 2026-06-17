@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -19,8 +20,12 @@ import { Types } from 'mongoose';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
 
+const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+
 @Controller('upload')
 export class UploadsController {
+  private readonly logger = new Logger(UploadsController.name);
+
   constructor(private uploadsService: UploadsService) {}
 
   @Post()
@@ -77,20 +82,28 @@ export class UploadsController {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
-    // First, store the file
+    const requestStart = performance.now();
+
+    // ── Store the file ──────────────────────────────────────────────────────
+    const tStoreStart = performance.now();
     const storagePath = this.uploadsService.storeFile(file);
-    
-    // Then analyze it
+    this.logger.log(`[UPLOAD] File stored: ${Math.round(performance.now() - tStoreStart)}ms`);
+
+    // ── Analyse ─────────────────────────────────────────────────────────────
     const requiredDoc = await this.uploadsService.getRequiredDocument(documentId);
     const expectedType = requiredDoc ? requiredDoc.name : undefined;
+
+    const tAnalyseStart = performance.now();
     const analysis = await this.uploadsService.analyzeUpload(
       storagePath,
       expectedType,
       file.mimetype,
       file.buffer,
     );
+    this.logger.log(`[UPLOAD] Analysis: ${Math.round(performance.now() - tAnalyseStart)}ms`);
 
-    // Create upload record with comprehensive detection data
+    // ── Persist to DB ────────────────────────────────────────────────────────
+    const tSaveStart = performance.now();
     const upload = await this.uploadsService.create({
       user: new Types.ObjectId(req.user.id),
       requiredDocument: new Types.ObjectId(documentId),
@@ -111,10 +124,22 @@ export class UploadsController {
           : undefined,
       source: 'upload',
     });
+    const saveMs = Math.round(performance.now() - tSaveStart);
+    this.logger.log(`[SAVE] DB write: ${saveMs}ms`);
+
+    const totalMs = Math.round(performance.now() - requestStart);
+    this.logger.log(`[UPLOAD] Request total: ${totalMs}ms`);
+
+    // Merge save timing into the pipeline timings block for the response
+    const timingsWithSave = analysis.timings
+      ? { ...analysis.timings, save: saveMs, total: totalMs }
+      : undefined;
 
     return {
       ...(upload as unknown as Record<string, unknown>),
       extractedFields: analysis.extractedFields,
+      reasons: analysis.reasons,
+      ...(!IS_PRODUCTION && timingsWithSave ? { timings: timingsWithSave } : {}),
     };
   }
 
