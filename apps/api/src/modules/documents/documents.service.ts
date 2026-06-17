@@ -263,6 +263,12 @@ export class DocumentsService {
       filename,
       mimetype,
       source: 'intelligence',
+      // ── Include verification result for complete audit trail ──────────
+      verificationStatus: result.verification?.status,
+      verified: result.verification?.verified,
+      confidence: result.verification?.confidence,
+      detectionReasons: result.verification?.reasons,
+      matchesExpectedType: result.verification?.matchesExpectedType,
     });
 
     return record.save();

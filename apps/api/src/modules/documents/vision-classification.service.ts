@@ -56,22 +56,6 @@ Rules:
 Respond ONLY with valid JSON:
 {"documentType":"TYPE","confidence":85,"reasoning":"...","detectedFeatures":["feature1","feature2"]}`;
 
-// ---------------------------------------------------------------------------
-// Module-level Tesseract singleton for the local classification fallback.
-// Only used when OpenAI is unavailable — prevents a 15-20s cold-start on that path.
-// ---------------------------------------------------------------------------
-let _classificationWorkerPromise: Promise<any> | null = null;
-
-async function getClassificationWorker(): Promise<any> {
-  if (!_classificationWorkerPromise) {
-    _classificationWorkerPromise = (async () => {
-      const { createWorker } = require('tesseract.js');
-      return createWorker('eng');
-    })();
-  }
-  return _classificationWorkerPromise;
-}
-
 @Injectable()
 export class VisionClassificationService {
   private readonly logger = new Logger(VisionClassificationService.name);
@@ -415,46 +399,91 @@ export class VisionClassificationService {
 
   private async extractLayoutMetrics(buffer: Buffer): Promise<LayoutMetrics> {
     try {
-      const worker = await getClassificationWorker();
-      const { data } = await worker.recognize(buffer);
-
-      const blocks = (data.blocks || []) as Array<{
-        text?: string;
-        confidence?: number;
-        bbox?: { x0: number; y0: number; x1: number; y1: number };
-      }>;
-      const lines = (data.lines || []) as Array<{ text?: string }>;
-
-      const validBlocks = blocks.filter(b => (b.text || '').trim().length > 0);
-      const lineCount = lines.filter(l => (l.text || '').trim().length > 0).length;
-      const blockCount = validBlocks.length;
-
-      const heights = validBlocks
-        .map(b => (b.bbox ? b.bbox.y1 - b.bbox.y0 : 0))
-        .filter(h => h > 0);
-      const avgBlockHeight = heights.length
-        ? heights.reduce((a, b) => a + b, 0) / heights.length
-        : 0;
-
-      const yPositions = validBlocks.map(b => b.bbox?.y0 ?? 0).sort((a, b) => a - b);
-      let alignedRows = 0;
-      for (let i = 1; i < yPositions.length; i++) {
-        if (Math.abs(yPositions[i] - yPositions[i - 1]) < 15) alignedRows++;
+      // Fast heuristic layout analysis WITHOUT Tesseract OCR
+      // Returns estimated metrics based on image structure analysis
+      const metadata = await sharp(buffer).metadata();
+      if (!metadata.width || !metadata.height) {
+        throw new Error('Cannot read image metadata');
       }
-      const hasTableStructure = alignedRows >= 4 && blockCount >= 8;
 
-      const totalText = lines.map(l => l.text || '').join(' ');
-      const textDensity = totalText.length / Math.max(1, blockCount);
+      const { data, info } = await sharp(buffer)
+        .grayscale()
+        .toBuffer({ resolveWithObject: true });
+
+      const width = info.width;
+      const height = info.height;
+      const pixelCount = width * height;
+
+      // ── Estimate text density by analyzing dark pixel concentration ──────
+      let darkPixels = 0;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i] < 128) darkPixels++;
+      }
+      const textDensity = darkPixels / pixelCount;
+
+      // ── Count horizontal lines (likely text rows) ──────────────────────
+      let horizontalLineCount = 0;
+      const lineThreshold = Math.floor(width * 0.7); // 70% of width is "a line"
+      const rowSample = [];
+
+      // Sample every 4th row to avoid redundant counting
+      for (let y = 0; y < height; y += 4) {
+        let darkInRow = 0;
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x);
+          if (data[idx] < 128) darkInRow++;
+        }
+        if (darkInRow >= lineThreshold) {
+          horizontalLineCount++;
+          rowSample.push(y);
+        }
+      }
+
+      // ── Estimate block count by detecting row clusters ───────────────
+      // Cluster consecutive rows into "blocks"
+      let blockCount = 0;
+      let inBlock = false;
+      for (let i = 0; i < rowSample.length; i++) {
+        const isConsecutive = i === 0 || rowSample[i] - rowSample[i - 1] <= 12;
+        if (isConsecutive && !inBlock) {
+          blockCount++;
+          inBlock = true;
+        } else if (!isConsecutive && inBlock) {
+          inBlock = false;
+        }
+      }
+      blockCount = Math.max(1, blockCount); // At least 1 block
+
+      // ── Estimate average block height ──────────────────────────────
+      const avgBlockHeight = blockCount > 0 ? height / blockCount : height;
+
+      // ── Detect table structure: aligned rows with consistent spacing ───
+      const hasTableStructure =
+        blockCount >= 8 &&
+        horizontalLineCount >= 12 &&
+        // Check if row spacing is consistent (table-like)
+        rowSample.length >= 4 &&
+        Math.abs(rowSample[1] - rowSample[0] - (rowSample[2] - rowSample[1])) < 8;
+
+      // ── Portrait dominance: low line count and block count ─────────────
+      const portraitDominant = horizontalLineCount < 8 && blockCount < 6;
+
+      this.logger.debug(
+        `[LAYOUT] Fast analysis: lineCount=${horizontalLineCount} blockCount=${blockCount} ` +
+        `textDensity=${textDensity.toFixed(2)} hasTable=${hasTableStructure}`,
+      );
 
       return {
-        lineCount,
+        lineCount: horizontalLineCount,
         blockCount,
         textDensity,
         hasTableStructure,
         avgBlockHeight,
-        portraitDominant: lineCount < 8 && blockCount < 6,
+        portraitDominant,
       };
-    } catch {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`[LAYOUT] Fast analysis failed, using defaults: ${msg}`);
       return {
         lineCount: 0,
         blockCount: 0,

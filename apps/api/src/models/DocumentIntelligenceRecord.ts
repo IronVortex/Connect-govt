@@ -84,6 +84,36 @@ export class DocumentIntelligenceRecord {
     default: 'intelligence',
   })
   source!: string;
+
+  // ── Verification result fields (added for complete audit trail) ──────
+  @Prop({
+    type: String,
+    enum: ['VERIFIED', 'REVIEW_REQUIRED', 'REJECTED', 'UNKNOWN'],
+  })
+  verificationStatus?: string;
+
+  @Prop({
+    type: Boolean,
+  })
+  verified?: boolean;
+
+  @Prop({
+    type: Number,
+    min: 0,
+    max: 100,
+  })
+  confidence?: number;
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  detectionReasons?: string[];
+
+  @Prop({
+    type: Boolean,
+  })
+  matchesExpectedType?: boolean;
 }
 
 export const DocumentIntelligenceRecordSchema = SchemaFactory.createForClass(
