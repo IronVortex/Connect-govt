@@ -69,6 +69,7 @@ export class VisionClassificationService {
     buffer: Buffer,
     mimeType?: string,
     expectedType?: string,
+    ocrText?: string,
   ): Promise<VisionClassificationResult> {
     const t0 = performance.now();
     const preprocessed = await this.preprocessingService.toClassificationImage(buffer, mimeType);
@@ -76,6 +77,7 @@ export class VisionClassificationService {
     this.logger.log(`[CLASSIFICATION] Preprocess: ${Math.round(tPreprocess - t0)}ms`);
 
     const normalizedExpected = normalizeDocumentType(expectedType);
+    const sanitizedText = ocrText?.trim() || '';
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (apiKey) {
@@ -96,7 +98,7 @@ export class VisionClassificationService {
     }
 
     const tLocalStart = performance.now();
-    const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType);
+    const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType, sanitizedText);
     this.logger.log(
       `[CLASSIFICATION] Local fallback: ${Math.round(performance.now() - tLocalStart)}ms` +
       ` — type=${localResult.documentType} confidence=${localResult.confidence}`,
@@ -170,9 +172,10 @@ export class VisionClassificationService {
     image: PreprocessedImage,
     expectedType?: KycDocumentType,
     mimeType?: string,
+    ocrText?: string,
   ): Promise<VisionClassificationResult> {
     const features = await this.extractVisualFeatures(image);
-    const scores = this.scoreDocumentTypes(features, mimeType);
+    const scores = this.scoreDocumentTypes(features, mimeType, ocrText);
 
     if (expectedType && expectedType !== 'UNKNOWN') {
       const expectedScore = scores.find(s => s.type === expectedType);
@@ -186,11 +189,11 @@ export class VisionClassificationService {
     const best = scores[0];
     const runnerUp = scores[1];
 
-    let confidence = Math.round(Math.min(95, best.score));
+    let confidence = Math.round(Math.min(100, best.score));
     let documentType = best.type;
 
-    if (runnerUp && runnerUp.score >= best.score * 0.88) {
-      confidence = Math.round(confidence * 0.75);
+    if (runnerUp && runnerUp.score >= best.score * 0.82) {
+      confidence = Math.round(confidence * 0.82);
       best.features.push(`ambiguous-with:${runnerUp.type}`);
     }
 
@@ -219,12 +222,13 @@ export class VisionClassificationService {
   private scoreDocumentTypes(
     features: VisualFeatures,
     mimeType?: string,
+    ocrText?: string,
   ): Array<{ type: KycDocumentType; score: number; features: string[] }> {
     const results: Array<{ type: KycDocumentType; score: number; features: string[] }> = [];
 
     for (const type of KYC_DOCUMENT_TYPES) {
       if (type === 'UNKNOWN') continue;
-      const { score, features: detected } = this.scoreType(type, features, mimeType);
+      const { score, features: detected } = this.scoreType(type, features, mimeType, ocrText);
       if (score > 0) {
         results.push({ type, score, features: detected });
       }
@@ -241,11 +245,25 @@ export class VisionClassificationService {
     type: KycDocumentType,
     features: VisualFeatures,
     mimeType?: string,
+    ocrText?: string,
   ): { score: number; features: string[] } {
     const f: string[] = [];
     let score = 0;
     const { layout, aspect, isPortrait, isLandscape, isSquareish, edgeDensity, colorVariance } =
       features;
+    const text = (ocrText ?? '').toLowerCase();
+
+    const contains = (terms: string | string[]) => {
+      const list = Array.isArray(terms) ? terms : [terms];
+      return list.some(term => text.includes(term));
+    };
+
+    const addTextSignal = (terms: string | string[], weight: number, label: string) => {
+      if (contains(terms)) {
+        score += weight;
+        f.push(label);
+      }
+    };
 
     switch (type) {
       case 'PASSPORT_PHOTO':
@@ -254,8 +272,12 @@ export class VisionClassificationService {
           f.push('portrait_layout', 'minimal_text');
         }
         if (layout.blockCount < 5 && aspect >= 0.7 && aspect <= 1.4) {
-          score += 25;
+          score += 20;
           f.push('photo_aspect_ratio');
+        }
+        if (contains(['passport photo', 'portrait', 'photo only'])) {
+          score += 20;
+          f.push('photo_text_cue');
         }
         if (layout.lineCount > 15) score -= 40;
         break;
@@ -265,15 +287,19 @@ export class VisionClassificationService {
       case 'PUC_MARKS':
       case 'DEGREE_CERTIFICATE':
         if (layout.hasTableStructure) {
-          score += 40;
+          score += 35;
           f.push('academic_table');
         }
+        if (contains(['marks', 'percentage', 'total marks', 'grade', 'subject'])) {
+          score += 30;
+          f.push('marks_text');
+        }
         if (layout.lineCount >= 12) {
-          score += 20;
+          score += 15;
           f.push('structured_text');
         }
         if (isLandscape || aspect > 1.1) {
-          score += 15;
+          score += 12;
           f.push('landscape_document');
         }
         if (isSquareish && layout.lineCount < 8) score -= 35;
@@ -283,6 +309,10 @@ export class VisionClassificationService {
         if (layout.lineCount >= 20 && !layout.hasTableStructure) {
           score += 35;
           f.push('multi_section_text');
+        }
+        if (contains(['experience', 'education', 'skills', 'career', 'projects'])) {
+          score += 30;
+          f.push('resume_keywords');
         }
         if (isPortrait && aspect < 0.85) {
           score += 20;
@@ -301,26 +331,72 @@ export class VisionClassificationService {
           score += 30;
           f.push('tabular_rows');
         }
+        if (contains(['account no', 'ifsc', 'bank', 'passbook', 'statement'])) {
+          score += 25;
+          f.push('bank_text');
+        }
         if (isPortrait) {
-          score += 15;
+          score += 12;
           f.push('passbook_layout');
         }
         break;
 
       case 'AADHAAR':
-      case 'PAN':
-      case 'PASSPORT':
-      case 'DRIVING_LICENSE':
-      case 'VOTER_ID':
         if (layout.lineCount >= 6 && layout.lineCount <= 40) {
           score += 25;
           f.push('id_card_layout');
         }
+        addTextSignal(['aadhaar', 'uidai', 'unique identity number', 'dob', 'address'], 35, 'aadhaar_text');
         if (colorVariance > 25) {
           score += 15;
           f.push('color_document');
         }
         if (isSquareish && layout.lineCount < 5) score -= 40;
+        break;
+
+      case 'PAN':
+        if (layout.lineCount >= 6 && layout.lineCount <= 40) {
+          score += 25;
+          f.push('id_card_layout');
+        }
+        addTextSignal(['permanent account number', 'income tax department', 'pan', 'assessee', 'holder'], 35, 'pan_text');
+        if (colorVariance > 25) {
+          score += 15;
+          f.push('color_document');
+        }
+        if (isSquareish && layout.lineCount < 5) score -= 40;
+        break;
+
+      case 'PASSPORT':
+        if (layout.lineCount >= 8 && layout.lineCount <= 35) {
+          score += 25;
+          f.push('passport_layout');
+        }
+        addTextSignal(['passport no', 'nationality', 'date of birth', 'place of birth', 'passport'], 35, 'passport_text');
+        if (colorVariance > 20) {
+          score += 15;
+          f.push('color_document');
+        }
+        break;
+
+      case 'DRIVING_LICENSE':
+        if (layout.lineCount >= 8 && layout.lineCount <= 35) {
+          score += 25;
+          f.push('license_layout');
+        }
+        addTextSignal(['driving licence', 'driving license', 'dl no', 'valid till', 'date of issue', 'vehicle class'], 35, 'driving_license_text');
+        if (isPortrait) {
+          score += 10;
+          f.push('portrait_license');
+        }
+        break;
+
+      case 'VOTER_ID':
+        if (layout.lineCount >= 8 && layout.lineCount <= 40) {
+          score += 25;
+          f.push('id_card_layout');
+        }
+        addTextSignal(['elector', 'voter', 'assembly constituency', 'voting'], 28, 'voter_text');
         break;
 
       case 'BIRTH_CERTIFICATE':
@@ -330,6 +406,7 @@ export class VisionClassificationService {
           score += 30;
           f.push('certificate_layout');
         }
+        addTextSignal(['birth certificate', 'date of birth', 'father', 'mother', 'name of child'], 30, 'certificate_text');
         if (edgeDensity > 0.1) {
           score += 10;
           f.push('border_detected');
@@ -343,6 +420,7 @@ export class VisionClassificationService {
           score += 25;
           f.push('policy_layout');
         }
+        addTextSignal(['insurance', 'policy', 'coverage', 'sum insured'], 25, 'insurance_text');
         break;
 
       case 'INVOICE':
@@ -350,6 +428,7 @@ export class VisionClassificationService {
           score += 30;
           f.push('invoice_table');
         }
+        addTextSignal(['invoice', 'total amount', 'gst', 'tax', 'bill to', 'invoice no'], 20, 'invoice_text');
         break;
 
       case 'ADDRESS_PROOF':
@@ -360,6 +439,7 @@ export class VisionClassificationService {
           score += 25;
           f.push('utility_bill_layout');
         }
+        addTextSignal(['bill', 'consumer', 'account number', 'due date', 'service address'], 18, 'utility_text');
         break;
 
       case 'VACCINATION_RECORD':
@@ -367,6 +447,7 @@ export class VisionClassificationService {
           score += 22;
           f.push('medical_record_layout');
         }
+        addTextSignal(['vaccination', 'dose', 'batch no', 'name of hospital', 'covid'], 18, 'vaccination_text');
         break;
 
       default:

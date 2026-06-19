@@ -111,12 +111,26 @@ export class DocumentsService {
       `[UPLOAD] Start — file="${input.filename}" mimeType="${mimeType}" expectedType="${expectedDocumentType}"`,
     );
 
-    // ── Step 1: Vision AI classification ────────────────────────────────────
+    // ── Step 1: OCR — must be available for robust document detection ───────
+    const tOcrStart = performance.now();
+    const ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
+    const ocrMs = Math.round(performance.now() - tOcrStart);
+    this.logger.log(
+      `[OCR] ${ocrMs}ms — chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
+    );
+
+    const extractedText =
+      ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
+        ? ocrResult.text.slice(0, 5000)
+        : NO_TEXT_FOUND;
+
+    // ── Step 2: Vision classification with OCR text support ─────────────────
     const tClassStart = performance.now();
     const classification = await this.visionClassificationService.classify(
       buffer,
       mimeType,
       expectedDocumentType,
+      extractedText,
     );
     const classificationMs = Math.round(performance.now() - tClassStart);
 
@@ -125,44 +139,10 @@ export class DocumentsService {
         `confidence=${classification.confidence}% matchesExpected=${classification.matchesExpectedType}`,
     );
 
-    // ── Step 2: OCR — skipped for non-text document types ───────────────────
-    const isNonTextType = NON_TEXT_DOCUMENT_TYPES.has(classification.documentType);
-    let ocrMs = 0;
-
-    let ocrResult: any;
-
-    if (isNonTextType) {
-      this.logger.log(
-        `[OCR] Skipped — ${classification.documentType} is a non-text document type`,
-      );
-      ocrResult = {
-        text: NO_TEXT_FOUND,
-        confidence: 0,
-        pages: [],
-        blocks: [],
-        lines: [],
-        qualityIssues: [],
-        imageProperties: {},
-        ocrConfidence: 0,
-      };
-    } else {
-      const tOcrStart = performance.now();
-      ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
-      ocrMs = Math.round(performance.now() - tOcrStart);
-      this.logger.log(
-        `[OCR] ${ocrMs}ms — chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
-      );
-    }
-
-    const extractedText =
-      ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
-        ? ocrResult.text.slice(0, 5000)
-        : NO_TEXT_FOUND;
-
     // ── Step 3: Structured data extraction ──────────────────────────────────
     const extractedData = this.validationService.parseFields(
       classification.documentType,
-      ocrResult.text,
+      extractedText,
     );
 
     // ── Step 4: Validation rules ─────────────────────────────────────────────

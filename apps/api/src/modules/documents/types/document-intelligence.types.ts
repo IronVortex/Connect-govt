@@ -421,10 +421,7 @@ export function typesMatchExpected(
   expected?: KycDocumentType,
 ): boolean {
   if (!expected || detected === 'UNKNOWN') return false;
-  if (detected === expected) return true;
-  const expectedAliases = DOCUMENT_TYPE_ALIASES[expected] || [];
-  const detectedAliases = DOCUMENT_TYPE_ALIASES[detected] || [];
-  return expectedAliases.includes(detected) || detectedAliases.includes(expected);
+  return detected === expected;
 }
 
 export function applyConfidenceThreshold(confidence: number): KycDocumentType | 'STRONG' | 'REVIEW' | 'UNKNOWN_LEVEL' {

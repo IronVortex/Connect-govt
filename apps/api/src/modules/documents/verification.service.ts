@@ -37,6 +37,14 @@ export class VerificationService {
       normalizedExpected,
     );
 
+    const confidence = this.resolveConfidence(
+      classification,
+      validation,
+      matchesExpectedType,
+      normalizedExpected,
+      status,
+    );
+
     const reasons = this.buildReasons(classification, ocr, validation, status, matchesExpectedType);
     const verified = status === 'VERIFIED';
 
@@ -45,7 +53,7 @@ export class VerificationService {
     return {
       documentType,
       documentTypeLabel,
-      confidence: classification.confidence,
+      confidence,
       category: classification.category,
       matchesExpectedType,
       reasoning: classification.reasoning,
@@ -122,6 +130,24 @@ export class VerificationService {
 
     // Default fallback
     return 'UNKNOWN';
+  }
+
+  private resolveConfidence(
+    classification: VisionClassificationResult,
+    validation: ValidationResult,
+    matchesExpectedType: boolean,
+    expectedType?: KycDocumentType,
+    status?: VerificationStatus,
+  ): number {
+    if (status === 'VERIFIED' && expectedType && matchesExpectedType && validation.valid) {
+      return 100;
+    }
+
+    if (status === 'REJECTED') {
+      return Math.max(classification.confidence, Math.round(validation.score));
+    }
+
+    return classification.confidence;
   }
 
   private buildReasons(
