@@ -26,28 +26,45 @@ export class VerificationService {
     const normalizedExpected = normalizeDocumentType(expectedType);
     const documentType = classification.documentType;
     const documentTypeLabel = DOCUMENT_TYPE_LABELS[documentType];
-    const matchesExpectedType =
-      classification.matchesExpectedType || typesMatchExpected(documentType, normalizedExpected);
+    
+    // Strict match: must equal expected type. If expected type not provided, we treat it as matching.
+    const matchesExpectedType = normalizedExpected ? (documentType === normalizedExpected) : true;
 
-    const status = this.resolveStatus(
-      classification,
-      ocr,
-      validation,
-      matchesExpectedType,
-      normalizedExpected,
-    );
+    const ocrSucceeded = ocr.text && ocr.text !== NO_TEXT_FOUND && ocr.text.trim().length > 10;
+    const typeDetected = documentType !== 'UNKNOWN';
+    const validationPasses = validation.valid === true;
+    const requiredFieldsExtracted = validation.hasAllRequiredFields === true;
 
-    const confidence = this.resolveConfidence(
-      classification,
-      validation,
-      matchesExpectedType,
-      normalizedExpected,
-      status,
-    );
+    let status: VerificationStatus = 'UNKNOWN';
+    let confidence = classification.confidence;
+
+    // VERIFIED only when all conditions are met
+    if (ocrSucceeded && typeDetected && matchesExpectedType && requiredFieldsExtracted && validationPasses) {
+      status = 'VERIFIED';
+      confidence = 100;
+    } else {
+      if (documentType === 'UNKNOWN') {
+        status = 'UNKNOWN';
+        confidence = Math.round(Math.min(59, Math.max(30, validation.score || classification.confidence))); // Weak evidence
+      } else if (normalizedExpected && documentType !== normalizedExpected) {
+        status = 'REJECTED';
+        confidence = 0;
+      } else {
+        status = 'REJECTED';
+        // Assign confidence based on validation score
+        const baseScore = validation.score || classification.confidence;
+        if (baseScore >= 86) {
+          confidence = Math.round(Math.min(99, baseScore)); // Strong evidence but not verified
+        } else if (baseScore >= 61) {
+          confidence = Math.round(Math.min(85, baseScore)); // Moderate evidence
+        } else {
+          confidence = Math.round(Math.min(60, Math.max(30, baseScore))); // Weak evidence
+        }
+      }
+    }
 
     const reasons = this.buildReasons(classification, ocr, validation, status, matchesExpectedType);
     const verified = status === 'VERIFIED';
-
     const extractedFields = this.flattenExtractedData(extractedData);
 
     return {
@@ -71,83 +88,6 @@ export class VerificationService {
       verified,
       reasons,
     };
-  }
-
-  private resolveStatus(
-    classification: VisionClassificationResult,
-    ocr: OcrExtractionResult,
-    validation: ValidationResult,
-    matchesExpectedType: boolean,
-    expectedType?: KycDocumentType,
-  ): VerificationStatus {
-    const { confidence, documentType } = classification;
-
-    // ── Hard guard: UNKNOWN type can never be VERIFIED ──────────────────────
-    // Prevents contradictory states like:
-    //   Document Type: Unknown | Confidence: 92% | Status: Verified
-    if (documentType === 'UNKNOWN' || confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
-      return 'UNKNOWN';
-    }
-
-    // Strict expected type mismatch rejection
-    if (expectedType && !matchesExpectedType) {
-      return 'REJECTED';
-    }
-
-    const hasReadableText = ocr.text && ocr.text !== NO_TEXT_FOUND && ocr.text.trim().length > 20;
-    const isPhotoType = documentType === 'PASSPORT_PHOTO';
-    const ocrAcceptable = isPhotoType || hasReadableText;
-
-    // OCR quality issues handling
-    if (!ocrAcceptable && ocr.qualityIssues.length > 0) {
-      // Strong confidence photo types → VERIFIED even without readable text
-      if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH && isPhotoType) {
-        return 'VERIFIED';
-      }
-      return confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED ? 'REVIEW_REQUIRED' : 'UNKNOWN';
-    }
-
-    // High confidence scenarios
-    if (confidence >= CONFIDENCE_THRESHOLDS.STRONG_MATCH) {
-      // Photo-type documents don't require text validation to pass
-      if (isPhotoType) {
-        return 'VERIFIED';
-      }
-      if (validation.valid) {
-        return 'VERIFIED';
-      }
-      // Validation failed despite strong confidence → REJECTED
-      return 'REJECTED';
-    }
-
-    // Medium confidence scenarios
-    if (confidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
-      if (!validation.valid) {
-        return expectedType && !matchesExpectedType ? 'REJECTED' : 'REVIEW_REQUIRED';
-      }
-      return 'REVIEW_REQUIRED';
-    }
-
-    // Default fallback
-    return 'UNKNOWN';
-  }
-
-  private resolveConfidence(
-    classification: VisionClassificationResult,
-    validation: ValidationResult,
-    matchesExpectedType: boolean,
-    expectedType?: KycDocumentType,
-    status?: VerificationStatus,
-  ): number {
-    if (status === 'VERIFIED' && expectedType && matchesExpectedType && validation.valid) {
-      return 100;
-    }
-
-    if (status === 'REJECTED') {
-      return Math.max(classification.confidence, Math.round(validation.score));
-    }
-
-    return classification.confidence;
   }
 
   private buildReasons(
@@ -181,6 +121,8 @@ export class VerificationService {
 
     if (status === 'VERIFIED') {
       reasons.unshift(`${classification.documentType} verified successfully`);
+    } else if (status === 'REJECTED') {
+      reasons.unshift(`${classification.documentType} verification rejected`);
     } else if (status === 'UNKNOWN') {
       reasons.unshift(classification.reasoning || 'Unable to classify document reliably');
     }
