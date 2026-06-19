@@ -10,6 +10,7 @@ import {
   normalizeDocumentType,
   typesMatchExpected,
   VisionClassificationResult,
+  NO_TEXT_FOUND,
 } from './types/document-intelligence.types';
 import { PreprocessingService, PreprocessedImage } from './preprocessing.service';
 
@@ -69,6 +70,7 @@ export class VisionClassificationService {
     buffer: Buffer,
     mimeType?: string,
     expectedType?: string,
+    ocrText?: string,
   ): Promise<VisionClassificationResult> {
     const t0 = performance.now();
     const preprocessed = await this.preprocessingService.toClassificationImage(buffer, mimeType);
@@ -77,12 +79,44 @@ export class VisionClassificationService {
 
     const normalizedExpected = normalizeDocumentType(expectedType);
 
+    // 1. Run local text classification first to check for a highly confident match
+    const textClassification = this.classifyByTextContent(ocrText);
+    if (textClassification && textClassification.confidence >= 80) {
+      this.logger.log(
+        `[CLASSIFICATION] High confidence text signal: type=${textClassification.type} confidence=${textClassification.confidence}%`
+      );
+      const matchesExpectedType = typesMatchExpected(textClassification.type, normalizedExpected);
+      return {
+        documentType: textClassification.type,
+        confidence: textClassification.confidence,
+        category: DOCUMENT_TYPE_CATEGORIES[textClassification.type],
+        reasoning: this.buildReasoning(textClassification.type, textClassification.features, textClassification.confidence),
+        detectedFeatures: textClassification.features,
+        matchesExpectedType,
+      };
+    }
+
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (apiKey) {
       try {
         const tAiStart = performance.now();
-        const aiResult = await this.classifyWithOpenAI(preprocessed, apiKey, normalizedExpected);
+        const aiResult = await this.classifyWithOpenAI(preprocessed, apiKey, normalizedExpected, ocrText);
         if (aiResult) {
+          // If OpenAI returns UNKNOWN but the text classifier has moderate confidence (>= 60), use the text classification instead of UNKNOWN
+          if (aiResult.documentType === 'UNKNOWN' && textClassification && textClassification.confidence >= 60) {
+            this.logger.log(
+              `[CLASSIFICATION] OpenAI returned UNKNOWN but text classifier has moderate confidence (${textClassification.confidence}%). Overriding with ${textClassification.type}`
+            );
+            const matchesExpectedType = typesMatchExpected(textClassification.type, normalizedExpected);
+            return {
+              documentType: textClassification.type,
+              confidence: textClassification.confidence,
+              category: DOCUMENT_TYPE_CATEGORIES[textClassification.type],
+              reasoning: this.buildReasoning(textClassification.type, textClassification.features, textClassification.confidence),
+              detectedFeatures: textClassification.features,
+              matchesExpectedType,
+            };
+          }
           this.logger.log(
             `[CLASSIFICATION] OpenAI: ${Math.round(performance.now() - tAiStart)}ms` +
             ` — type=${aiResult.documentType} confidence=${aiResult.confidence}`,
@@ -96,7 +130,7 @@ export class VisionClassificationService {
     }
 
     const tLocalStart = performance.now();
-    const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType);
+    const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType, ocrText);
     this.logger.log(
       `[CLASSIFICATION] Local fallback: ${Math.round(performance.now() - tLocalStart)}ms` +
       ` — type=${localResult.documentType} confidence=${localResult.confidence}`,
@@ -112,10 +146,14 @@ export class VisionClassificationService {
     image: PreprocessedImage,
     apiKey: string,
     expectedType?: KycDocumentType,
+    ocrText?: string,
   ): Promise<VisionClassificationResult | null> {
     const base64 = image.buffer.toString('base64');
     const expectedHint = expectedType
       ? `\nThe user uploaded this into the "${DOCUMENT_TYPE_LABELS[expectedType]}" slot. Factor this in but do not override clear visual evidence.`
+      : '';
+    const ocrTextHint = ocrText && ocrText !== 'NO_TEXT_FOUND'
+      ? `\nHere is the OCR text extracted from the document. Use it as the PRIMARY signal to verify the document type:\n"""\n${ocrText.slice(0, 4000)}\n"""`
       : '';
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -130,7 +168,7 @@ export class VisionClassificationService {
           {
             role: 'user',
             content: [
-              { type: 'text', text: CLASSIFICATION_PROMPT + expectedHint },
+              { type: 'text', text: CLASSIFICATION_PROMPT + expectedHint + ocrTextHint },
               { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } },
             ],
           },
@@ -166,18 +204,238 @@ export class VisionClassificationService {
     );
   }
 
+  private classifyByTextContent(
+    text?: string,
+  ): { type: KycDocumentType; confidence: number; features: string[] } | null {
+    if (!text || text === NO_TEXT_FOUND || text.trim().length < 10) {
+      return null;
+    }
+
+    const cleaned = text.toUpperCase();
+    const scores: Record<KycDocumentType, { score: number; features: string[] }> = {} as any;
+    for (const t of KYC_DOCUMENT_TYPES) {
+      scores[t] = { score: 0, features: [] };
+    }
+
+    // AADHAAR
+    if (cleaned.includes('UNIQUE IDENTIFICATION') || cleaned.includes('UIDAI')) {
+      scores['AADHAAR'].score += 55;
+      scores['AADHAAR'].features.push('uidai_keyword');
+    }
+    if (cleaned.includes('GOVERNMENT OF INDIA') || cleaned.includes('BHARAT SARKAR')) {
+      scores['AADHAAR'].score += 40;
+      scores['AADHAAR'].features.push('goi_keyword');
+    }
+    if (cleaned.includes('AADHAAR') || cleaned.includes('AADHAR')) {
+      scores['AADHAAR'].score += 50;
+      scores['AADHAAR'].features.push('aadhaar_name_keyword');
+    }
+    if (/\b\d{4}\s\d{4}\s\d{4}\b/.test(text) || /\b\d{12}\b/.test(text)) {
+      scores['AADHAAR'].score += 80;
+      scores['AADHAAR'].features.push('aadhaar_number_pattern');
+    }
+    if (/VID\s*:\s*\d/i.test(text) || cleaned.includes('VIRTUAL ID') || cleaned.includes('VID')) {
+      scores['AADHAAR'].score += 45;
+      scores['AADHAAR'].features.push('aadhaar_vid');
+    }
+    if (/FEMALE|MALE|महिला|पुरुष/i.test(text)) {
+      scores['AADHAAR'].score += 35;
+      scores['AADHAAR'].features.push('aadhaar_gender');
+    }
+    if (/DOB|YOB|BIRTH|YEAR OF BIRTH|जन्म/i.test(text)) {
+      scores['AADHAAR'].score += 30;
+      scores['AADHAAR'].features.push('aadhaar_dob');
+    }
+    if (scores['AADHAAR'].features.includes('aadhaar_number_pattern') && 
+        (scores['AADHAAR'].features.includes('aadhaar_gender') || scores['AADHAAR'].features.includes('aadhaar_dob'))) {
+      scores['AADHAAR'].score += 30;
+      scores['AADHAAR'].features.push('aadhaar_combo_boost');
+    }
+
+    // PAN
+    if (cleaned.includes('INCOME TAX DEPARTMENT') || cleaned.includes('INCOME TAX')) {
+      scores['PAN'].score += 60;
+      scores['PAN'].features.push('income_tax_keyword');
+    }
+    if (cleaned.includes('PERMANENT ACCOUNT')) {
+      scores['PAN'].score += 50;
+      scores['PAN'].features.push('pan_label_keyword');
+    }
+    if (cleaned.includes('CARD') && (cleaned.includes(' PAN ') || cleaned.includes('PAN CARD'))) {
+      scores['PAN'].score += 45;
+      scores['PAN'].features.push('pan_card_keyword');
+    }
+    if (/\b[A-Z]{5}[0-9]{4}[A-Z]\b/i.test(text)) {
+      scores['PAN'].score += 80;
+      scores['PAN'].features.push('pan_number_pattern');
+    }
+    if (cleaned.includes('FATHER') || cleaned.includes("FATHER'S NAME")) {
+      scores['PAN'].score += 30;
+      scores['PAN'].features.push('pan_father_keyword');
+    }
+    if (scores['PAN'].features.includes('pan_number_pattern') && 
+        (scores['PAN'].features.includes('income_tax_keyword') || scores['PAN'].features.includes('pan_label_keyword'))) {
+      scores['PAN'].score += 35;
+      scores['PAN'].features.push('pan_combo_boost');
+    }
+
+    // PASSPORT
+    if ((cleaned.includes('REPUBLIC OF INDIA') || cleaned.includes('BHARAT SARKAR')) && cleaned.includes('PASSPORT')) {
+      scores['PASSPORT'].score += 65;
+      scores['PASSPORT'].features.push('republic_of_india_passport');
+    }
+    if (cleaned.includes('PASSPORT') && (cleaned.includes('NUMBER') || cleaned.includes('NO.'))) {
+      scores['PASSPORT'].score += 50;
+      scores['PASSPORT'].features.push('passport_number_keyword');
+    }
+    if (/\b[A-Z][0-9]{7}\b/i.test(text)) {
+      scores['PASSPORT'].score += 70;
+      scores['PASSPORT'].features.push('passport_number_pattern');
+    }
+    if (cleaned.includes('GIVEN NAMES') || cleaned.includes('SURNAME') || cleaned.includes('NATIONALITY')) {
+      scores['PASSPORT'].score += 35;
+      scores['PASSPORT'].features.push('passport_fields');
+    }
+    if (scores['PASSPORT'].features.includes('passport_number_pattern') && 
+        (scores['PASSPORT'].features.includes('passport_number_keyword') || scores['PASSPORT'].features.includes('republic_of_india_passport'))) {
+      scores['PASSPORT'].score += 30;
+      scores['PASSPORT'].features.push('passport_combo_boost');
+    }
+
+    // DRIVING_LICENSE
+    if (cleaned.includes('DRIVING LICENCE') || cleaned.includes('DRIVING LICENSE')) {
+      scores['DRIVING_LICENSE'].score += 65;
+      scores['DRIVING_LICENSE'].features.push('driving_license_keyword');
+    }
+    if (cleaned.includes('DL NO') || cleaned.includes('DL NUMBER') || cleaned.includes('LICENCE NO') || cleaned.includes('LICENSE NO')) {
+      scores['DRIVING_LICENSE'].score += 55;
+      scores['DRIVING_LICENSE'].features.push('dl_no_keyword');
+    }
+    if (/\b[A-Z]{2}[0-9]{2}\s?[0-9]{11,13}\b/i.test(text)) {
+      scores['DRIVING_LICENSE'].score += 75;
+      scores['DRIVING_LICENSE'].features.push('dl_number_pattern');
+    }
+    if (cleaned.includes('RTO') || cleaned.includes('TRANSPORT') || cleaned.includes('AUTHORISATION') || cleaned.includes('COV')) {
+      scores['DRIVING_LICENSE'].score += 40;
+      scores['DRIVING_LICENSE'].features.push('dl_rto_keyword');
+    }
+    if (scores['DRIVING_LICENSE'].features.includes('dl_number_pattern') && 
+        (scores['DRIVING_LICENSE'].features.includes('driving_license_keyword') || scores['DRIVING_LICENSE'].features.includes('dl_no_keyword'))) {
+      scores['DRIVING_LICENSE'].score += 30;
+      scores['DRIVING_LICENSE'].features.push('dl_combo_boost');
+    }
+
+    // BANK_PASSBOOK
+    if (cleaned.includes('ACCOUNT NUMBER') || cleaned.includes('ACC NO') || cleaned.includes('A/C NO') || cleaned.includes('ACCOUNT NO')) {
+      scores['BANK_PASSBOOK'].score += 55;
+      scores['BANK_PASSBOOK'].features.push('account_number_keyword');
+    }
+    if (cleaned.includes('IFSC') || cleaned.includes('IFSC CODE')) {
+      scores['BANK_PASSBOOK'].score += 55;
+      scores['BANK_PASSBOOK'].features.push('ifsc_code_keyword');
+    }
+    if (/\b[A-Z]{4}0[A-Z0-9]{6}\b/i.test(text)) {
+      scores['BANK_PASSBOOK'].score += 75;
+      scores['BANK_PASSBOOK'].features.push('bank_ifsc_pattern');
+    }
+    if (cleaned.includes('BRANCH') || cleaned.includes('BANK') || cleaned.includes('PASSBOOK')) {
+      scores['BANK_PASSBOOK'].score += 40;
+      scores['BANK_PASSBOOK'].features.push('bank_keywords');
+    }
+    if (scores['BANK_PASSBOOK'].features.includes('bank_ifsc_pattern') && 
+        (scores['BANK_PASSBOOK'].features.includes('account_number_keyword') || scores['BANK_PASSBOOK'].features.includes('bank_keywords'))) {
+      scores['BANK_PASSBOOK'].score += 30;
+      scores['BANK_PASSBOOK'].features.push('bank_combo_boost');
+    }
+
+    // MARKS_CARD
+    if (cleaned.includes('MARKS CARD') || cleaned.includes('MARKSHEET') || cleaned.includes('STATEMENT OF MARKS') || cleaned.includes('SSLC') || cleaned.includes('PUC')) {
+      scores['MARKS_CARD'].score += 70;
+      scores['MARKS_CARD'].features.push('marks_card_keyword');
+    }
+    if (cleaned.includes('REGISTER NUMBER') || cleaned.includes('REG. NO') || cleaned.includes('REG NO') || cleaned.includes('ROLL NO') || cleaned.includes('USN') || cleaned.includes('ROLL NUMBER')) {
+      scores['MARKS_CARD'].score += 55;
+      scores['MARKS_CARD'].features.push('register_number_keyword');
+    }
+    if (cleaned.includes('SUBJECT') && (cleaned.includes('TOTAL MARKS') || cleaned.includes('MARKS') || cleaned.includes('GRADE') || cleaned.includes('CGPA') || cleaned.includes('SGPA'))) {
+      scores['MARKS_CARD'].score += 55;
+      scores['MARKS_CARD'].features.push('marks_table_keywords');
+    }
+    if (scores['MARKS_CARD'].features.includes('marks_card_keyword') && 
+        (scores['MARKS_CARD'].features.includes('register_number_keyword') || scores['MARKS_CARD'].features.includes('marks_table_keywords'))) {
+      scores['MARKS_CARD'].score += 30;
+      scores['MARKS_CARD'].features.push('marks_combo_boost');
+    }
+
+    // BIRTH_CERTIFICATE
+    if (cleaned.includes('BIRTH CERTIFICATE') || cleaned.includes('CERTIFICATE OF BIRTH')) {
+      scores['BIRTH_CERTIFICATE'].score += 75;
+      scores['BIRTH_CERTIFICATE'].features.push('birth_certificate_keyword');
+    }
+    if (cleaned.includes('DATE OF BIRTH') || cleaned.includes('DOB') || cleaned.includes('DATE OF DELIVER') || cleaned.includes('BORN ON')) {
+      scores['BIRTH_CERTIFICATE'].score += 50;
+      scores['BIRTH_CERTIFICATE'].features.push('dob_keyword');
+    }
+    if (cleaned.includes('REGISTRATION NUMBER') || cleaned.includes('REG. NO') || cleaned.includes('BIRTH REGISTRATION') || cleaned.includes('REGISTRATION NO')) {
+      scores['BIRTH_CERTIFICATE'].score += 50;
+      scores['BIRTH_CERTIFICATE'].features.push('birth_reg_keyword');
+    }
+    if (cleaned.includes('FATHER') || cleaned.includes('MOTHER') || cleaned.includes('PARENT')) {
+      scores['BIRTH_CERTIFICATE'].score += 35;
+      scores['BIRTH_CERTIFICATE'].features.push('birth_parents_keyword');
+    }
+    if (scores['BIRTH_CERTIFICATE'].features.includes('birth_certificate_keyword') && 
+        (scores['BIRTH_CERTIFICATE'].features.includes('dob_keyword') || scores['BIRTH_CERTIFICATE'].features.includes('birth_reg_keyword'))) {
+      scores['BIRTH_CERTIFICATE'].score += 30;
+      scores['BIRTH_CERTIFICATE'].features.push('birth_combo_boost');
+    }
+
+    const candidates = Object.entries(scores)
+      .map(([type, data]) => ({ type: type as KycDocumentType, score: data.score, features: data.features }))
+      .filter(c => c.score > 25)
+      .sort((a, b) => b.score - a.score);
+
+    if (candidates.length > 0) {
+      const best = candidates[0];
+      const runnerUp = candidates[1];
+      let confidence = Math.round(Math.min(99, best.score));
+      if (runnerUp && runnerUp.score >= best.score * 0.85) {
+        confidence = Math.round(confidence * 0.7);
+      }
+      return { type: best.type, confidence, features: best.features };
+    }
+
+    return null;
+  }
+
   private async classifyLocally(
     image: PreprocessedImage,
     expectedType?: KycDocumentType,
     mimeType?: string,
+    ocrText?: string,
   ): Promise<VisionClassificationResult> {
+    const textResult = this.classifyByTextContent(ocrText);
     const features = await this.extractVisualFeatures(image);
     const scores = this.scoreDocumentTypes(features, mimeType);
+
+    if (textResult) {
+      const targetScore = scores.find(s => s.type === textResult.type);
+      if (targetScore) {
+        targetScore.score += textResult.confidence;
+        targetScore.features.push(...textResult.features);
+      } else {
+        scores.push({
+          type: textResult.type,
+          score: textResult.confidence,
+          features: textResult.features,
+        });
+      }
+    }
 
     if (expectedType && expectedType !== 'UNKNOWN') {
       const expectedScore = scores.find(s => s.type === expectedType);
       if (expectedScore) {
-        expectedScore.score += 12;
+        expectedScore.score += 15;
         expectedScore.features.push('expected-type-prior');
       }
     }
@@ -186,7 +444,7 @@ export class VisionClassificationService {
     const best = scores[0];
     const runnerUp = scores[1];
 
-    let confidence = Math.round(Math.min(95, best.score));
+    let confidence = Math.round(Math.min(99, best.score));
     let documentType = best.type;
 
     if (runnerUp && runnerUp.score >= best.score * 0.88) {
@@ -527,7 +785,7 @@ export class VisionClassificationService {
         ? (rawType as KycDocumentType)
         : normalizeDocumentType(rawType) || 'UNKNOWN';
 
-    let confidence = Math.round(Math.min(100, Math.max(0, rawConfidence)));
+    let confidence = Math.round(Math.min(99, Math.max(0, rawConfidence)));
     let documentType = normalized;
 
     if (confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {

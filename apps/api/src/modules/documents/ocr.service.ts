@@ -67,6 +67,57 @@ export class OcrService {
       .trim();
   }
 
+  private async recognizeAndPostprocess(
+    preprocessedBuffer: Buffer,
+    pageNumber: number,
+    originalBuffer?: Buffer,
+  ): Promise<{
+    text: string;
+    confidence: number;
+    pages: OcrPage[];
+    blocks: OcrBlock[];
+    lines: OcrLine[];
+  }> {
+    let ocrResult = await this.performDetailedOcr(preprocessedBuffer, pageNumber);
+    
+    // Check if we should try rotations due to low confidence or no text
+    if (ocrResult.confidence < 60 || ocrResult.text.trim().length < 15) {
+      this.logger.log(`[OCR] Low confidence (${ocrResult.confidence.toFixed(1)}%) or low text length on page ${pageNumber}. Trying rotation checks...`);
+      let bestResult = ocrResult;
+      const rotations = [90, 180, 270];
+      for (const angle of rotations) {
+        try {
+          const rotated = await sharp(preprocessedBuffer).rotate(angle).toBuffer();
+          const result = await this.performDetailedOcr(rotated, pageNumber);
+          if (result.confidence > bestResult.confidence && result.text.trim().length > bestResult.text.trim().length) {
+            this.logger.log(`[OCR] Better orientation found at ${angle} degrees (confidence: ${result.confidence.toFixed(1)}%)`);
+            bestResult = result;
+            if (result.confidence > 80) break;
+          }
+        } catch (err) {
+          this.logger.warn(`Rotation at ${angle} degrees failed: ${err}`);
+        }
+      }
+      ocrResult = bestResult;
+    }
+
+    // Try raw image fallback if still very low confidence and original buffer is provided
+    if ((ocrResult.confidence < 50 || ocrResult.text.trim().length < 10) && originalBuffer?.length) {
+      try {
+        this.logger.log(`[OCR] Preprocessing was ineffective for page ${pageNumber}. Trying raw image...`);
+        const rawRotated = await sharp(originalBuffer).rotate().toBuffer().catch(() => originalBuffer);
+        const rawOcr = await this.performDetailedOcr(rawRotated, pageNumber);
+        if (rawOcr.confidence > ocrResult.confidence && rawOcr.text.trim().length > ocrResult.text.trim().length) {
+          ocrResult = rawOcr;
+        }
+      } catch (err) {
+        this.logger.warn(`Raw image OCR fallback failed: ${err}`);
+      }
+    }
+
+    return ocrResult;
+  }
+
   private async extractFromImage(buffer: Buffer): Promise<OcrExtractionResult> {
     const t0 = performance.now();
 
@@ -75,7 +126,7 @@ export class OcrService {
     const tPreprocess = performance.now();
     this.logger.log(`[OCR] Preprocess: ${Math.round(tPreprocess - t0)}ms`);
 
-    const ocrResult = await this.performDetailedOcr(preprocessed.buffer, 1);
+    const ocrResult = await this.recognizeAndPostprocess(preprocessed.buffer, 1, buffer);
     const tOcr = performance.now();
     this.logger.log(`[OCR] Tesseract recognition: ${Math.round(tOcr - tPreprocess)}ms`);
 
@@ -216,7 +267,7 @@ export class OcrService {
 
     for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber++) {
       const page = await pdfDoc.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 2.5 });
+      const viewport = page.getViewport({ scale: 3.0 });
       if (pageNumber === 1) {
         width = viewport.width;
         height = viewport.height;
@@ -231,7 +282,7 @@ export class OcrService {
       qualityIssues.push(...pageQuality);
 
       const preprocessed = await this.preprocessingService.preprocessForOcr(pageBuffer);
-      const ocrResult = await this.performDetailedOcr(preprocessed.buffer, pageNumber);
+      const ocrResult = await this.recognizeAndPostprocess(preprocessed.buffer, pageNumber, pageBuffer);
       pages.push(...ocrResult.pages);
     }
 

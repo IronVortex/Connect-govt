@@ -93,11 +93,13 @@ export class ValidationService {
       case 'AADHAAR': {
         const idRaw = extractedData.idNumber ? String(extractedData.idNumber).replace(/\s/g, '') : '';
         const hasIdFormat = /^\d{12}$/.test(idRaw);
-        const hasKeywords = /aadhaar|aadhar|uidai|unique\s*identification/i.test(text);
+        const hasKeywords = /aadhaar|aadhar|uidai|unique\s*identification/i.test(text) ||
+                            /vid\s*:/i.test(text) ||
+                            (/female|male|महिला|पुरुष/i.test(text) && /dob|yob|birth|जन्म/i.test(text));
         hasRequiredIdentifiers = hasIdFormat && hasKeywords;
         hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.gender);
         if (!hasIdFormat) issues.push('Invalid or missing Aadhaar 12-digit number');
-        if (!hasKeywords) issues.push('Aadhaar / UIDAI keywords not detected');
+        if (!hasKeywords) issues.push('Aadhaar / UIDAI keywords or card markers not detected');
         if (!extractedData.name) issues.push('Name not found');
         if (!extractedData.dob) issues.push('Date of birth not found');
         break;
@@ -105,41 +107,50 @@ export class ValidationService {
       case 'PAN': {
         const idRaw = extractedData.idNumber ? String(extractedData.idNumber).toUpperCase() : '';
         const hasIdFormat = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(idRaw);
-        const hasKeywords = /income\s*tax|permanent\s*account|tax\s*department/i.test(text);
+        const hasKeywords = /income\s*tax|permanent\s*account|tax\s*department/i.test(text) ||
+                            /pan\s*card/i.test(text) ||
+                            (/father/i.test(text) && /signature/i.test(text));
         hasRequiredIdentifiers = hasIdFormat && hasKeywords;
         hasAllRequiredFields = Boolean(extractedData.name && extractedData.idNumber);
         if (!hasIdFormat) issues.push('Invalid or missing PAN number (format: ABCDE1234F)');
-        if (!hasKeywords) issues.push('Income Tax Department keywords not detected');
+        if (!hasKeywords) issues.push('Income Tax Department keywords or card markers not detected');
         if (!extractedData.name) issues.push('Name not found');
         break;
       }
       case 'PASSPORT': {
         const idRaw = extractedData.idNumber ? String(extractedData.idNumber).toUpperCase() : '';
         const hasIdFormat = /^[A-Z][0-9]{7}$/.test(idRaw);
-        const hasKeywords = /passport|republic\s*of\s*india|external\s*affairs/i.test(text);
+        const hasKeywords = /passport|republic\s*of\s*india|external\s*affairs/i.test(text) ||
+                            (/given\s*names/i.test(text) && /surname/i.test(text)) ||
+                            /country\s*code/i.test(text);
         hasRequiredIdentifiers = hasIdFormat && hasKeywords;
         hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.idNumber);
         if (!hasIdFormat) issues.push('Invalid or missing passport number');
-        if (!hasKeywords) issues.push('Passport keywords not detected');
+        if (!hasKeywords) issues.push('Passport keywords or markers not detected');
         if (!extractedData.name) issues.push('Name not found');
         if (!extractedData.dob) issues.push('Date of birth not found');
         break;
       }
       case 'DRIVING_LICENSE': {
-        const hasKeywords = /driving\s*licen[cs]e|licence\s*number|dl\s*no/i.test(text);
+        const hasKeywords = /driving\s*licen[cs]e|licence\s*number|dl\s*no/i.test(text) ||
+                            /dl\s*number/i.test(text) ||
+                            /union\s*of\s*india/i.test(text) ||
+                            /licence\s*to\s*drive/i.test(text) ||
+                            /auth\s*to\s*drive/i.test(text);
         hasRequiredIdentifiers = Boolean(extractedData.idNumber) && hasKeywords;
         hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && extractedData.idNumber);
         if (!extractedData.idNumber) issues.push('Driving license number not found');
-        if (!hasKeywords) issues.push('Driving license keywords not detected');
+        if (!hasKeywords) issues.push('Driving license keywords or card markers not detected');
         if (!extractedData.name) issues.push('Name not found');
         if (!extractedData.dob) issues.push('Date of birth not found');
         break;
       }
       case 'BIRTH_CERTIFICATE': {
-        const hasKeywords = /birth\s*certificate|certificate\s*of\s*birth/i.test(text);
+        const hasKeywords = /birth\s*certificate|certificate\s*of\s*birth/i.test(text) ||
+                            (/born\s*on/i.test(text) && /registration/i.test(text));
         hasRequiredIdentifiers = hasKeywords && Boolean(extractedData.registrationNumber || extractedData.idNumber || extractedData.dob);
         hasAllRequiredFields = Boolean(extractedData.name && extractedData.dob && /father|mother|parent/i.test(text));
-        if (!hasKeywords) issues.push('Birth certificate keywords not detected');
+        if (!hasKeywords) issues.push('Birth certificate keywords or markers not detected');
         if (!extractedData.dob) issues.push('Date of birth not found');
         if (!extractedData.name) issues.push('Name not found');
         break;
