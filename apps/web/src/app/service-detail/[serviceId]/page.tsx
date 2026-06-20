@@ -27,12 +27,13 @@ import { Topbar } from '../../../components/Topbar';
 import { useAuth } from '../../../lib/AuthContext';
 import { cn } from '../../../lib/utils';
 import apiClient from '../../../services/apiClient';
+import { normalizeUploadDocument, normalizeUploadDetectedType, normalizeUploadStatus, normalizeUploadConfidence } from '../../../lib/uploadHelpers';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_FORMAT_LABEL = 'JPG, PNG, PDF';
 
-type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
+type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN' | 'PENDING';
 type UploadState = {
   fileName?: string;
   progress: number;
@@ -41,6 +42,13 @@ type UploadState = {
   status?: VerificationStatus;
   detectedType?: string;
   confidence?: number;
+  verificationStatus?: string;
+  analysis?: {
+    detectedType?: string;
+    verificationStatus?: string;
+    classificationConfidence?: number;
+    confidence?: number;
+  };
   reasons?: string[];
   extractedFields?: Record<string, unknown>;
 };
@@ -64,8 +72,9 @@ function normalizeLegacyStatus(status?: string): VerificationStatus {
     REVIEW_REQUIRED: 'REVIEW_REQUIRED',
     REJECTED: 'REJECTED',
     UNKNOWN: 'UNKNOWN',
+    PENDING: 'PENDING',
   };
-  return map[status || ''] || 'UNKNOWN';
+  return map[status || ''] || 'PENDING';
 }
 
 /** Maps raw backend enum keys to human-readable labels.
@@ -126,9 +135,9 @@ function normalizeUploadResponse(data: any): {
   extractedFields?: Record<string, unknown>;
 } {
   return {
-    status: normalizeLegacyStatus(data?.detectionStatus || data?.status),
-    detectedType: resolveDocumentLabel(data?.detectedType || data?.documentType),
-    confidence: data?.confidence,
+    status: normalizeUploadStatus(data),
+    detectedType: normalizeUploadDetectedType(data),
+    confidence: normalizeUploadConfidence(data),
     // Live upload response uses `reasons`; persisted DB record uses `detectionReasons`
     reasons: data?.reasons || data?.detectionReasons,
     extractedFields: data?.extractedFields,
@@ -167,7 +176,7 @@ export default function ServiceDetailPage() {
         apiClient.get('/upload/me'),
         apiClient.get('/application-summary'),
       ]);
-      setUploads(uploadsRes.data || []);
+      setUploads((uploadsRes.data || []).map(normalizeUploadDocument));
       setSummary(summaryRes.data || null);
     } catch (err: any) {
       // if unauthorized, signal auth context to handle redirect
@@ -353,6 +362,8 @@ export default function ServiceDetailPage() {
             return `Document requires manual review (${confidence}% confidence)`;
           case 'REJECTED':
             return `Wrong document uploaded or validation failed. Please upload the correct document.`;
+          case 'PENDING':
+            return `Document upload received and verification is pending (${confidence ?? '—'}% confidence).`;
           case 'UNKNOWN':
             return 'Document could not be classified reliably. Please upload a clearer image.';
           default:

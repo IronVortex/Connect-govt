@@ -5,10 +5,11 @@ import { AlertCircle, CheckCircle2, CloudUpload, FileText, Loader2, XCircle } fr
 import { RequiredDocument, UploadedDocument } from '@connect/types';
 import { Badge } from './Badge';
 import { cn } from '../lib/utils';
+import { normalizeUploadConfidence, normalizeUploadDetectedType, normalizeUploadStatus } from '../lib/uploadHelpers';
 
-export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
+export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN' | 'PENDING';
 
-export type UploadState = {
+type UploadState = {
   fileName?: string;
   progress: number;
   message?: string;
@@ -16,6 +17,13 @@ export type UploadState = {
   status?: VerificationStatus;
   detectedType?: string;
   confidence?: number;
+  verificationStatus?: string;
+  analysis?: {
+    detectedType?: string;
+    verificationStatus?: string;
+    classificationConfidence?: number;
+    confidence?: number;
+  };
   reasons?: string[];
   extractedFields?: Record<string, unknown>;
   matchesExpectedType?: boolean;
@@ -59,9 +67,10 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   onFileSelect,
   onDragChange,
 }) => {
-  const status = state?.status || persistedUpload?.detectionStatus;
-  const detectedType = state?.detectedType || persistedUpload?.detectedType;
-  const confidence = state?.confidence ?? persistedUpload?.confidence ?? 0;
+  const mergedUpload = { ...persistedUpload, ...state };
+  const status = normalizeUploadStatus(mergedUpload);
+  const detectedType = normalizeUploadDetectedType(mergedUpload);
+  const confidence = normalizeUploadConfidence(mergedUpload) ?? 0;
   const reasons = state?.reasons ?? persistedUpload?.detectionReasons ?? [];
   const progress = state?.progress ?? (persistedUpload ? 100 : 0);
   const extractedEntries = getExtractedFieldEntries(state?.extractedFields);
@@ -166,7 +175,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Confidence</p>
-                  <p className="mt-0.5 text-sm font-black text-slate-900">{confidence > 0 ? `${confidence}%` : '—'}</p>
+                  <p className="mt-0.5 text-sm font-black text-slate-900">{confidence !== undefined ? `${confidence}%` : '—'}</p>
                 </div>
               </div>
 

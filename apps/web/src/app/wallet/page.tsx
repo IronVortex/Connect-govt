@@ -6,6 +6,7 @@ import { Topbar } from '../../components/Topbar';
 import { useAuth } from '../../lib/AuthContext';
 import apiClient from '../../services/apiClient';
 import { UploadedDocument, RequiredDocument, Service } from '@connect/types';
+import { normalizeUploadDocument } from '../../lib/uploadHelpers';
 import {
   Wallet,
   ShieldCheck,
@@ -72,63 +73,63 @@ const STATUS_META: Record<
   { label: string; icon: React.ElementType; bg: string; text: string; dot: string }
 > = {
   VERIFIED: {
-    label: 'Verified',
+    label: 'VERIFIED',
     icon: CheckCircle2,
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     dot: 'bg-emerald-500',
   },
   REVIEW_REQUIRED: {
-    label: 'Review',
+    label: 'REVIEW_REQUIRED',
     icon: AlertCircle,
     bg: 'bg-amber-50',
     text: 'text-amber-700',
     dot: 'bg-amber-500',
   },
   REJECTED: {
-    label: 'Rejected',
+    label: 'REJECTED',
     icon: XCircle,
     bg: 'bg-red-50',
     text: 'text-red-700',
     dot: 'bg-red-500',
   },
   MATCHED: {
-    label: 'Verified',
+    label: 'VERIFIED',
     icon: CheckCircle2,
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     dot: 'bg-emerald-500',
   },
   DETECTED: {
-    label: 'Verified',
+    label: 'VERIFIED',
     icon: CheckCircle2,
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     dot: 'bg-emerald-500',
   },
   NEEDS_REVIEW: {
-    label: 'Review',
+    label: 'REVIEW_REQUIRED',
     icon: AlertCircle,
     bg: 'bg-amber-50',
     text: 'text-amber-700',
     dot: 'bg-amber-500',
   },
   MISMATCHED: {
-    label: 'Rejected',
+    label: 'REJECTED',
     icon: XCircle,
     bg: 'bg-red-50',
     text: 'text-red-700',
     dot: 'bg-red-500',
   },
   UNKNOWN: {
-    label: 'Unknown',
+    label: 'UNKNOWN',
     icon: HelpCircle,
     bg: 'bg-slate-100',
     text: 'text-slate-600',
     dot: 'bg-slate-400',
   },
   PENDING: {
-    label: 'Pending',
+    label: 'PENDING',
     icon: Clock,
     bg: 'bg-slate-100',
     text: 'text-slate-500',
@@ -303,8 +304,8 @@ export default function WalletPage() {
         apiClient.get<UploadedDocument[]>('/upload/wallet'),
         apiClient.get<UploadedDocument[]>('/upload/me'),
       ]);
-      const rawWallet = walletRes.data ?? [];
-      const rawHistory = allRes.data ?? [];
+      const rawWallet = (walletRes.data ?? []).map(normalizeUploadDocument);
+      const rawHistory = (allRes.data ?? []).map(normalizeUploadDocument);
 
       // Deduplicate wallet docs by document name (keep the latest one)
       const uniqueWalletMap = new Map<string, UploadedDocument>();

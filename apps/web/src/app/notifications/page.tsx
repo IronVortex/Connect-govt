@@ -6,6 +6,7 @@ import { Topbar } from '../../components/Topbar';
 import { useAuth } from '../../lib/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Application, UploadedDocument } from '@connect/types';
+import { normalizeUploadDocument } from '../../lib/uploadHelpers';
 import {
   Bell,
   CheckCircle2,
@@ -164,6 +165,7 @@ export default function NotificationsPage() {
       ]);
 
       const uploadNotifs: NotificationItem[] = (uploadsRes.data ?? [])
+        .map(normalizeUploadDocument)
         .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime())
         .map(uploadToNotification);
 

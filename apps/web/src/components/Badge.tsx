@@ -20,15 +20,15 @@ export const Badge: React.FC<BadgeProps> = ({ status, className }) => {
     NEEDS_REVIEW: 'bg-amber-100 text-amber-700 border border-amber-200',
   };
   const labels: Record<string, string> = {
-    VERIFIED: 'Verified',
-    REVIEW_REQUIRED: 'Review Required',
-    REJECTED: 'Rejected',
-    UNKNOWN: 'Unknown',
-    PENDING: 'Pending',
-    MATCHED: 'Verified',
-    DETECTED: 'Verified',
-    MISMATCHED: 'Rejected',
-    NEEDS_REVIEW: 'Review Required',
+    VERIFIED: 'VERIFIED',
+    REVIEW_REQUIRED: 'REVIEW_REQUIRED',
+    REJECTED: 'REJECTED',
+    UNKNOWN: 'UNKNOWN',
+    PENDING: 'PENDING',
+    MATCHED: 'VERIFIED',
+    DETECTED: 'VERIFIED',
+    MISMATCHED: 'REJECTED',
+    NEEDS_REVIEW: 'REVIEW_REQUIRED',
   };
   const style = variants[status] || variants['PENDING'];
   return (

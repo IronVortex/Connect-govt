@@ -21,7 +21,7 @@ export interface RequiredDocument {
   service: Service | string;
 }
 
-export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN';
+export type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN' | 'PENDING';
 
 export interface UploadedDocument {
   _id: string;
@@ -33,6 +33,13 @@ export interface UploadedDocument {
   detectionStatus: VerificationStatus;
   detectedType?: string;
   confidence?: number;
+  verificationStatus?: string;
+  analysis?: {
+    detectedType?: string;
+    verificationStatus?: string;
+    classificationConfidence?: number;
+    confidence?: number;
+  };
   extractedText?: string;
   matchedExpectedType?: string;
   detectionReasons?: string[];
