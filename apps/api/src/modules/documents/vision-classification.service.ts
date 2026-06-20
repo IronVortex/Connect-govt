@@ -78,6 +78,13 @@ export class VisionClassificationService {
     this.logger.log(`[CLASSIFICATION] Preprocess: ${Math.round(tPreprocess - t0)}ms`);
 
     const normalizedExpected = normalizeDocumentType(expectedType);
+    const hardOcrFallback = this.classifyByHardOcrFallback(ocrText, normalizedExpected);
+    if (hardOcrFallback) {
+      this.logger.log(
+        `[CLASSIFICATION] Hard OCR fallback: type=${hardOcrFallback.documentType} confidence=${hardOcrFallback.confidence}%`,
+      );
+      return hardOcrFallback;
+    }
 
     // OCR text is the primary signal. Strong deterministic indicators win immediately.
     const textClassification = this.classifyByTextContent(ocrText);
@@ -120,6 +127,10 @@ export class VisionClassificationService {
             `[CLASSIFICATION] OpenAI: ${Math.round(performance.now() - tAiStart)}ms` +
             ` - type=${aiResult.documentType} confidence=${aiResult.confidence}`,
           );
+          if (aiResult.documentType === 'UNKNOWN') {
+            const fallback = this.classifyByHardOcrFallback(ocrText, normalizedExpected);
+            if (fallback) return fallback;
+          }
           return aiResult;
         }
       } catch (error: unknown) {
@@ -134,6 +145,10 @@ export class VisionClassificationService {
       `[CLASSIFICATION] Local fallback: ${Math.round(performance.now() - tLocalStart)}ms` +
       ` - type=${localResult.documentType} confidence=${localResult.confidence}`,
     );
+    if (localResult.documentType === 'UNKNOWN') {
+      const fallback = this.classifyByHardOcrFallback(ocrText, normalizedExpected);
+      if (fallback) return fallback;
+    }
     return localResult;
   }
 
@@ -293,6 +308,95 @@ export class VisionClassificationService {
 
     return { type: best.type, confidence, features: best.features };
   }
+
+  private classifyByHardOcrFallback(
+    ocrText?: string,
+    expectedType?: KycDocumentType,
+  ): VisionClassificationResult | null {
+    if (!ocrText || ocrText === NO_TEXT_FOUND || ocrText.trim().length < 8) {
+      return null;
+    }
+
+    const text = ocrText.toUpperCase();
+    const checks: Array<{ type: KycDocumentType; matched: boolean; features: string[] }> = [
+      {
+        type: 'AADHAAR',
+        matched:
+          text.includes('UNIQUE IDENTIFICATION AUTHORITY OF INDIA') ||
+          text.includes('UIDAI') ||
+          text.includes('AADHAAR') ||
+          text.includes('GOVERNMENT OF INDIA') ||
+          /\b\d{4}\s?\d{4}\s?\d{4}\b/.test(ocrText),
+        features: ['hard_ocr_aadhaar'],
+      },
+      {
+        type: 'PAN',
+        matched:
+          text.includes('INCOME TAX DEPARTMENT') ||
+          text.includes('PERMANENT ACCOUNT NUMBER') ||
+          /\b[A-Z]{5}[0-9]{4}[A-Z]\b/i.test(ocrText),
+        features: ['hard_ocr_pan'],
+      },
+      {
+        type: 'PASSPORT',
+        matched:
+          text.includes('PASSPORT') ||
+          text.includes('REPUBLIC OF INDIA') ||
+          text.includes('PASSPORT NO') ||
+          text.includes('NATIONALITY'),
+        features: ['hard_ocr_passport'],
+      },
+      {
+        type: 'DRIVING_LICENSE',
+        matched:
+          text.includes('DRIVING LICENCE') ||
+          text.includes('DRIVING LICENSE') ||
+          text.includes('DL NO') ||
+          text.includes('LICENCE NO'),
+        features: ['hard_ocr_driving_license'],
+      },
+      {
+        type: 'BIRTH_CERTIFICATE',
+        matched:
+          text.includes('BIRTH CERTIFICATE') ||
+          text.includes('REGISTRAR') ||
+          text.includes('DATE OF BIRTH'),
+        features: ['hard_ocr_birth_certificate'],
+      },
+      {
+        type: 'MARKS_CARD',
+        matched:
+          text.includes('MARKS CARD') ||
+          text.includes('MARKSHEET') ||
+          text.includes('REGISTER NUMBER') ||
+          text.includes('SEMESTER') ||
+          text.includes('EXAMINATION'),
+        features: ['hard_ocr_marks_card'],
+      },
+      {
+        type: 'BANK_PASSBOOK',
+        matched:
+          text.includes('PASSBOOK') ||
+          text.includes('ACCOUNT NUMBER') ||
+          text.includes('IFSC') ||
+          text.includes('BRANCH'),
+        features: ['hard_ocr_bank_passbook'],
+      },
+    ];
+
+    const match = checks.find(check => check.matched);
+    if (!match) return null;
+
+    return {
+      documentType: match.type,
+      confidence: 95,
+      category: DOCUMENT_TYPE_CATEGORIES[match.type],
+      reasoning: `Hard OCR fallback detected ${DOCUMENT_TYPE_LABELS[match.type]}`,
+      detectedFeatures: match.features,
+      matchesExpectedType: typesMatchExpected(match.type, expectedType),
+    };
+  }
+
   private async classifyLocally(
     image: PreprocessedImage,
     expectedType?: KycDocumentType,

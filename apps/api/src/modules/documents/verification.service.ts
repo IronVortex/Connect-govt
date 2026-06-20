@@ -26,23 +26,25 @@ export class VerificationService {
     
     // Strict match: must equal expected type. If expected type not provided, we treat it as matching.
     const matchesExpectedType = normalizedExpected ? (documentType === normalizedExpected) : true;
+    const ocrTextLength = ocr.text && ocr.text !== NO_TEXT_FOUND ? ocr.text.trim().length : 0;
+    const validationPasses = validation.valid === true;
 
-    let status: VerificationStatus = 'UNKNOWN';
+    let status: VerificationStatus = 'REJECTED';
     let confidence = classification.confidence;
 
     if (normalizedExpected) {
-      if (documentType === normalizedExpected) {
+      if (documentType === normalizedExpected && validationPasses && ocrTextLength > 20) {
         status = 'VERIFIED';
         confidence = 100;
       } else {
         status = 'REJECTED';
-        confidence = 0;
+        confidence = documentType === normalizedExpected ? Math.min(classification.confidence, 99) : 0;
       }
-    } else if (documentType !== 'UNKNOWN' && classification.confidence >= 70) {
+    } else if (documentType !== 'UNKNOWN' && validationPasses && ocrTextLength > 20 && classification.confidence >= 70) {
       status = 'VERIFIED';
       confidence = Math.max(classification.confidence, validation.score);
     } else {
-      status = documentType === 'UNKNOWN' ? 'UNKNOWN' : 'REVIEW_REQUIRED';
+      status = 'REJECTED';
       confidence = Math.round(Math.max(classification.confidence, validation.score));
     }
 
