@@ -17,7 +17,6 @@ import { VisionClassificationService } from './vision-classification.service';
 import { VerificationService } from './verification.service';
 import {
   DocumentIntelligenceResponse,
-  KycDocumentType,
   LegacyAnalysisResult,
   NO_TEXT_FOUND,
   PipelineTimings,
@@ -32,14 +31,6 @@ export interface ProcessDocumentInput {
   persist?: boolean;
 }
 
-/**
- * Document types that contain no extractable text.
- * OCR is skipped entirely for these — returning empty text immediately.
- */
-const NON_TEXT_DOCUMENT_TYPES = new Set<KycDocumentType>([
-  'PASSPORT_PHOTO',
-  'SUPPORTING_DOCUMENT',
-]);
 
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
@@ -94,7 +85,8 @@ export class DocumentsService {
   }
 
   /**
-   * Pipeline: Preprocessing & OCR → Text Extraction → Classification → Field Extraction → Validation → Verification
+   * Pipeline: Upload -> OCR -> Document Detection -> Validation -> Verification.
+   * OCR runs before classification because deterministic OCR text rules are authoritative.
    */
   async processDocument(input: ProcessDocumentInput): Promise<DocumentIntelligenceResponse> {
     const totalStart = performance.now();
@@ -105,24 +97,24 @@ export class DocumentsService {
     }
 
     this.logger.log(
-      `[UPLOAD] Start — file="${input.filename}" mimeType="${mimeType}" expectedType="${expectedDocumentType}"`,
+      `[UPLOAD] Start â€” file="${input.filename}" mimeType="${mimeType}" expectedType="${expectedDocumentType}"`,
     );
 
-    // ── Step 1: Preprocessing & OCR ──────────────────────────────────────────
+    // â”€â”€ Step 1: Preprocessing & OCR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const tOcrStart = performance.now();
     const ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
     const ocrMs = Math.round(performance.now() - tOcrStart);
     this.logger.log(
-      `[OCR] ${ocrMs}ms — chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
+      `[OCR] ${ocrMs}ms â€” chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
     );
 
-    // ── Step 2: Text Extraction ──────────────────────────────────────────────
+    // â”€â”€ Step 2: Text Extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const extractedText =
       ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
         ? ocrResult.text.slice(0, 5000)
         : NO_TEXT_FOUND;
 
-    // ── Step 3: Document Classification (using OCR text as primary signal) ───
+    // â”€â”€ Step 3: Document Classification (using OCR text as primary signal) â”€â”€â”€
     const tClassStart = performance.now();
     const classification = await this.visionClassificationService.classify(
       buffer,
@@ -133,17 +125,17 @@ export class DocumentsService {
     const classificationMs = Math.round(performance.now() - tClassStart);
 
     this.logger.log(
-      `[CLASSIFICATION] ${classificationMs}ms — type=${classification.documentType} ` +
+      `[CLASSIFICATION] ${classificationMs}ms â€” type=${classification.documentType} ` +
         `confidence=${classification.confidence}% matchesExpected=${classification.matchesExpectedType}`,
     );
 
-    // ── Step 4: Field Extraction ─────────────────────────────────────────────
+    // â”€â”€ Step 4: Field Extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const extractedData = this.validationService.parseFields(
       classification.documentType,
       extractedText,
     );
 
-    // ── Step 5: Validation ───────────────────────────────────────────────────
+    // â”€â”€ Step 5: Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const tValidStart = performance.now();
     const validation = this.validationService.validate(
       classification.documentType,
@@ -153,10 +145,10 @@ export class DocumentsService {
     );
     const validationMs = Math.round(performance.now() - tValidStart);
     this.logger.log(
-      `[VALIDATION] ${validationMs}ms — valid=${validation.valid} score=${validation.score}`,
+      `[VALIDATION] ${validationMs}ms â€” valid=${validation.valid} score=${validation.score}`,
     );
 
-    // ── Step 6: Final Verification ───────────────────────────────────────────
+    // â”€â”€ Step 6: Final Verification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const verification = this.verificationService.resolve(
       classification,
       ocrResult,
@@ -252,7 +244,7 @@ export class DocumentsService {
       filename,
       mimetype,
       source: 'intelligence',
-      // ── Include verification result for complete audit trail ──────────
+      // â”€â”€ Include verification result for complete audit trail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       verificationStatus: result.verification?.status,
       verified: result.verification?.verified,
       confidence: result.verification?.confidence,

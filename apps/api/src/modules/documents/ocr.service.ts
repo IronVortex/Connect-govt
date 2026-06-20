@@ -38,7 +38,7 @@ export class OcrService {
 
   async extractFromFile(buffer: Buffer, mimeType?: string): Promise<OcrExtractionResult> {
     if (!buffer?.length) {
-      return this.emptyResult(['Empty file — no content to process']);
+      return this.emptyResult(['Empty file â€” no content to process']);
     }
 
     if (mimeType === 'application/pdf') {
@@ -61,12 +61,17 @@ export class OcrService {
     return text
       .replace(/\r\n/g, '\n')
       .replace(/[^\S\n]+/g, ' ')
-      .replace(/[|¦]/g, 'I')
+      .replace(/[|\u00A6]/g, 'I')
       .replace(/[`'']/g, "'")
+      .replace(/\bA\s*A\s*D\s*H\s*A\s*A\s*R\b/gi, 'Aadhaar')
+      .replace(/\bA\s*A\s*D\s*H\s*A\s*R\b/gi, 'Aadhar')
+      .replace(/\bP\s*A\s*N\b/g, 'PAN')
+      .replace(/\bI\s*F\s*S\s*C\b/gi, 'IFSC')
+      .replace(/\bD\s*L\s*\.?\s*N\s*O\b/gi, 'DL No')
+      .replace(/\bA\s*\/\s*C\s*\.?\s*N\s*O\b/gi, 'A/C No')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
-
   private async recognizeAndPostprocess(
     preprocessedBuffer: Buffer,
     pageNumber: number,
@@ -131,13 +136,13 @@ export class OcrService {
     this.logger.log(`[OCR] Tesseract recognition: ${Math.round(tOcr - tPreprocess)}ms`);
 
     if (!ocrResult.text.trim() && qualityIssues.length === 0) {
-      qualityIssues.push('Text unreadable — no characters detected after preprocessing');
+      qualityIssues.push('Text unreadable â€” no characters detected after preprocessing');
     }
 
     const text = this.normalizeText(ocrResult.text);
     const confidence = ocrResult.confidence;
 
-    this.logger.log(`[OCR] Image complete: ${Math.round(tOcr - t0)}ms — chars=${text.length}, confidence=${confidence.toFixed(1)}%`);
+    this.logger.log(`[OCR] Image complete: ${Math.round(tOcr - t0)}ms â€” chars=${text.length}, confidence=${confidence.toFixed(1)}%`);
 
     return {
       text,
@@ -200,7 +205,7 @@ export class OcrService {
         textParts.push(fallbackText);
         confidences.push(70);
       } else {
-        qualityIssues.push('PDF could not be parsed — file may be corrupted or encrypted');
+        qualityIssues.push('PDF could not be parsed â€” file may be corrupted or encrypted');
       }
     }
 
@@ -212,10 +217,10 @@ export class OcrService {
         : 0;
 
     if (text === NO_TEXT_FOUND) {
-      qualityIssues.push('No readable text found — PDF may be scanned at low quality or blank');
+      qualityIssues.push('No readable text found â€” PDF may be scanned at low quality or blank');
     }
 
-    this.logger.log(`[OCR] PDF complete: ${Math.round(performance.now() - t0)}ms — chars=${text.length}`);
+    this.logger.log(`[OCR] PDF complete: ${Math.round(performance.now() - t0)}ms â€” chars=${text.length}`);
 
     return {
       text,
@@ -299,7 +304,7 @@ export class OcrService {
 
   /**
    * Runs Tesseract recognition using the shared singleton worker.
-   * The worker is initialized once and reused — no per-request cold-start.
+   * The worker is initialized once and reused â€” no per-request cold-start.
    */
   private async performDetailedOcr(
     buffer: Buffer,

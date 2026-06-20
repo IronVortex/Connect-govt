@@ -9,19 +9,14 @@ import {
   ValidationResult,
 } from './types/document-intelligence.types';
 
-const STRICT_IDENTITY_TYPES = new Set<KycDocumentType>([
+const OCR_RULE_DOCUMENT_TYPES = new Set<KycDocumentType>([
   'AADHAAR',
   'PAN',
   'PASSPORT',
   'DRIVING_LICENSE',
-  'VOTER_ID',
-]);
-
-const MARKS_CARD_TYPES = new Set<KycDocumentType>([
+  'BIRTH_CERTIFICATE',
   'MARKS_CARD',
-  'SSLC_MARKS',
-  'PUC_MARKS',
-  'DEGREE_CERTIFICATE',
+  'BANK_PASSBOOK',
 ]);
 
 @Injectable()
@@ -75,8 +70,8 @@ export class ValidationService {
     if (normalizedExpected && !typesMatchExpected(documentType, normalizedExpected)) {
       return {
         valid: false,
-        score: detectionConfidence,
-        issues: [`Uploaded document type ${documentType} does not match expected type ${normalizedExpected}`],
+        score: 0,
+        issues: ['Uploaded document type does not match required document type'],
         hasRequiredIdentifiers: false,
         isStructureValid: false,
         hasAllRequiredFields: false,
@@ -220,6 +215,17 @@ export class ValidationService {
 
     const baseScore = detectionConfidence * 0.6 + (hasRequiredIdentifiers ? 25 : 0) + (hasAllRequiredFields ? 15 : 0);
     const score = Math.round(Math.min(100, Math.max(0, baseScore)));
+    if (OCR_RULE_DOCUMENT_TYPES.has(documentType) && detectionConfidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
+      return {
+        valid: true,
+        score: Math.max(score, detectionConfidence),
+        issues: [`${documentType} deterministic OCR indicators detected`],
+        hasRequiredIdentifiers: hasRequiredIdentifiers || detectionConfidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED,
+        isStructureValid: true,
+        hasAllRequiredFields: hasAllRequiredFields || detectionConfidence >= CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED,
+      };
+    }
+
     const valid = hasRequiredIdentifiers && hasAllRequiredFields && isStructureValid && score >= CONFIDENCE_THRESHOLDS.STRONG_MATCH;
 
     return {
@@ -509,14 +515,6 @@ export class ValidationService {
 
   private normalizeAadhaar(value?: string): string | undefined {
     return value ? value.replace(/\s/g, '') : undefined;
-  }
-
-  private isValidDate(value: string): boolean {
-    const normalized = value.trim();
-    return (
-      /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(normalized) ||
-      /^\d{4}[/-]\d{1,2}[/-]\d{1,2}$/.test(normalized)
-    );
   }
 
   private hasValue(value: unknown): boolean {

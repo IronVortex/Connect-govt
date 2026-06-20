@@ -36,7 +36,7 @@ interface VisualFeatures {
 }
 
 const CLASSIFICATION_PROMPT = `You are a document classification expert for an Indian government services portal.
-Analyze the document image visually — layout, logos, emblems, tables, forms, portraits, certificates, passbooks.
+Analyze the document image visually - layout, logos, emblems, tables, forms, portraits, certificates, passbooks.
 Do NOT guess from filename. Classify based on visual structure only.
 
 Supported document types (return exactly one):
@@ -79,9 +79,9 @@ export class VisionClassificationService {
 
     const normalizedExpected = normalizeDocumentType(expectedType);
 
-    // 1. Run local text classification first to check for a highly confident match
+    // OCR text is the primary signal. Strong deterministic indicators win immediately.
     const textClassification = this.classifyByTextContent(ocrText);
-    if (textClassification && textClassification.confidence >= 80) {
+    if (textClassification && textClassification.confidence >= 70) {
       this.logger.log(
         `[CLASSIFICATION] High confidence text signal: type=${textClassification.type} confidence=${textClassification.confidence}%`
       );
@@ -102,8 +102,7 @@ export class VisionClassificationService {
         const tAiStart = performance.now();
         const aiResult = await this.classifyWithOpenAI(preprocessed, apiKey, normalizedExpected, ocrText);
         if (aiResult) {
-          // If OpenAI returns UNKNOWN but the text classifier has moderate confidence (>= 60), use the text classification instead of UNKNOWN
-          if (aiResult.documentType === 'UNKNOWN' && textClassification && textClassification.confidence >= 60) {
+          if (aiResult.documentType === 'UNKNOWN' && textClassification && textClassification.confidence >= 40) {
             this.logger.log(
               `[CLASSIFICATION] OpenAI returned UNKNOWN but text classifier has moderate confidence (${textClassification.confidence}%). Overriding with ${textClassification.type}`
             );
@@ -119,7 +118,7 @@ export class VisionClassificationService {
           }
           this.logger.log(
             `[CLASSIFICATION] OpenAI: ${Math.round(performance.now() - tAiStart)}ms` +
-            ` — type=${aiResult.documentType} confidence=${aiResult.confidence}`,
+            ` - type=${aiResult.documentType} confidence=${aiResult.confidence}`,
           );
           return aiResult;
         }
@@ -133,7 +132,7 @@ export class VisionClassificationService {
     const localResult = await this.classifyLocally(preprocessed, normalizedExpected, mimeType, ocrText);
     this.logger.log(
       `[CLASSIFICATION] Local fallback: ${Math.round(performance.now() - tLocalStart)}ms` +
-      ` — type=${localResult.documentType} confidence=${localResult.confidence}`,
+      ` - type=${localResult.documentType} confidence=${localResult.confidence}`,
     );
     return localResult;
   }
@@ -207,207 +206,93 @@ export class VisionClassificationService {
   private classifyByTextContent(
     text?: string,
   ): { type: KycDocumentType; confidence: number; features: string[] } | null {
-    if (!text || text === NO_TEXT_FOUND || text.trim().length < 10) {
-      return null;
-    }
+    if (!text || text === NO_TEXT_FOUND || !text.trim()) return null;
 
     const cleaned = text.toUpperCase();
-    const scores: Record<KycDocumentType, { score: number; features: string[] }> = {} as any;
-    for (const t of KYC_DOCUMENT_TYPES) {
-      scores[t] = { score: 0, features: [] };
-    }
+    const scores: Partial<Record<KycDocumentType, { score: number; features: string[] }>> = {};
+    const ensure = (type: KycDocumentType) => {
+      scores[type] ??= { score: 0, features: [] };
+      return scores[type]!;
+    };
+    const keyword = (type: KycDocumentType, value: string, score: number, feature: string) => {
+      if (!cleaned.includes(value.toUpperCase())) return;
+      const current = ensure(type);
+      current.score += score;
+      current.features.push(feature);
+    };
+    const pattern = (type: KycDocumentType, value: RegExp, score: number, feature: string) => {
+      if (!value.test(text)) return;
+      const current = ensure(type);
+      current.score += score;
+      current.features.push(feature);
+    };
 
-    // AADHAAR
-    if (cleaned.includes('UNIQUE IDENTIFICATION') || cleaned.includes('UIDAI')) {
-      scores['AADHAAR'].score += 55;
-      scores['AADHAAR'].features.push('uidai_keyword');
-    }
-    if (cleaned.includes('GOVERNMENT OF INDIA') || cleaned.includes('BHARAT SARKAR')) {
-      scores['AADHAAR'].score += 40;
-      scores['AADHAAR'].features.push('goi_keyword');
-    }
-    if (cleaned.includes('AADHAAR') || cleaned.includes('AADHAR')) {
-      scores['AADHAAR'].score += 50;
-      scores['AADHAAR'].features.push('aadhaar_name_keyword');
-    }
-    if (/\b\d{4}\s\d{4}\s\d{4}\b/.test(text) || /\b\d{12}\b/.test(text)) {
-      scores['AADHAAR'].score += 80;
-      scores['AADHAAR'].features.push('aadhaar_number_pattern');
-    }
-    if (/VID\s*:\s*\d/i.test(text) || cleaned.includes('VIRTUAL ID') || cleaned.includes('VID')) {
-      scores['AADHAAR'].score += 45;
-      scores['AADHAAR'].features.push('aadhaar_vid');
-    }
-    if (/FEMALE|MALE|महिला|पुरुष/i.test(text)) {
-      scores['AADHAAR'].score += 35;
-      scores['AADHAAR'].features.push('aadhaar_gender');
-    }
-    if (/DOB|YOB|BIRTH|YEAR OF BIRTH|जन्म/i.test(text)) {
-      scores['AADHAAR'].score += 30;
-      scores['AADHAAR'].features.push('aadhaar_dob');
-    }
-    if (scores['AADHAAR'].features.includes('aadhaar_number_pattern') && 
-        (scores['AADHAAR'].features.includes('aadhaar_gender') || scores['AADHAAR'].features.includes('aadhaar_dob'))) {
-      scores['AADHAAR'].score += 30;
-      scores['AADHAAR'].features.push('aadhaar_combo_boost');
-    }
+    keyword('AADHAAR', 'Government of India', 30, 'government_of_india');
+    keyword('AADHAAR', 'Unique Identification Authority of India', 60, 'uidai_full_keyword');
+    keyword('AADHAAR', 'Unique Identification', 45, 'unique_identification');
+    keyword('AADHAAR', 'Aadhaar', 60, 'aadhaar_keyword');
+    keyword('AADHAAR', 'Aadhar', 45, 'aadhar_keyword');
+    keyword('AADHAAR', 'VID', 30, 'vid_keyword');
+    pattern('AADHAAR', /\b\d{4}\s?\d{4}\s?\d{4}\b/, 70, 'aadhaar_number_pattern');
 
-    // PAN
-    if (cleaned.includes('INCOME TAX DEPARTMENT') || cleaned.includes('INCOME TAX')) {
-      scores['PAN'].score += 60;
-      scores['PAN'].features.push('income_tax_keyword');
-    }
-    if (cleaned.includes('PERMANENT ACCOUNT')) {
-      scores['PAN'].score += 50;
-      scores['PAN'].features.push('pan_label_keyword');
-    }
-    if (cleaned.includes('CARD') && (cleaned.includes(' PAN ') || cleaned.includes('PAN CARD'))) {
-      scores['PAN'].score += 45;
-      scores['PAN'].features.push('pan_card_keyword');
-    }
-    if (/\b[A-Z]{5}[0-9]{4}[A-Z]\b/i.test(text)) {
-      scores['PAN'].score += 80;
-      scores['PAN'].features.push('pan_number_pattern');
-    }
-    if (cleaned.includes('FATHER') || cleaned.includes("FATHER'S NAME")) {
-      scores['PAN'].score += 30;
-      scores['PAN'].features.push('pan_father_keyword');
-    }
-    if (scores['PAN'].features.includes('pan_number_pattern') && 
-        (scores['PAN'].features.includes('income_tax_keyword') || scores['PAN'].features.includes('pan_label_keyword'))) {
-      scores['PAN'].score += 35;
-      scores['PAN'].features.push('pan_combo_boost');
-    }
+    keyword('PAN', 'INCOME TAX DEPARTMENT', 60, 'income_tax_department');
+    keyword('PAN', 'Permanent Account Number', 65, 'permanent_account_number');
+    pattern('PAN', /\b[A-Z]{5}[0-9]{4}[A-Z]\b/i, 80, 'pan_number_pattern');
 
-    // PASSPORT
-    if ((cleaned.includes('REPUBLIC OF INDIA') || cleaned.includes('BHARAT SARKAR')) && cleaned.includes('PASSPORT')) {
-      scores['PASSPORT'].score += 65;
-      scores['PASSPORT'].features.push('republic_of_india_passport');
-    }
-    if (cleaned.includes('PASSPORT') && (cleaned.includes('NUMBER') || cleaned.includes('NO.'))) {
-      scores['PASSPORT'].score += 50;
-      scores['PASSPORT'].features.push('passport_number_keyword');
-    }
-    if (/\b[A-Z][0-9]{7}\b/i.test(text)) {
-      scores['PASSPORT'].score += 70;
-      scores['PASSPORT'].features.push('passport_number_pattern');
-    }
-    if (cleaned.includes('GIVEN NAMES') || cleaned.includes('SURNAME') || cleaned.includes('NATIONALITY')) {
-      scores['PASSPORT'].score += 35;
-      scores['PASSPORT'].features.push('passport_fields');
-    }
-    if (scores['PASSPORT'].features.includes('passport_number_pattern') && 
-        (scores['PASSPORT'].features.includes('passport_number_keyword') || scores['PASSPORT'].features.includes('republic_of_india_passport'))) {
-      scores['PASSPORT'].score += 30;
-      scores['PASSPORT'].features.push('passport_combo_boost');
-    }
+    keyword('PASSPORT', 'Passport', 60, 'passport_keyword');
+    keyword('PASSPORT', 'Republic of India', 45, 'republic_of_india');
+    keyword('PASSPORT', 'Passport No', 55, 'passport_no');
+    keyword('PASSPORT', 'Nationality', 35, 'nationality');
+    pattern('PASSPORT', /\b[A-Z][0-9]{7}\b/i, 45, 'passport_number_pattern');
 
-    // DRIVING_LICENSE
-    if (cleaned.includes('DRIVING LICENCE') || cleaned.includes('DRIVING LICENSE')) {
-      scores['DRIVING_LICENSE'].score += 65;
-      scores['DRIVING_LICENSE'].features.push('driving_license_keyword');
-    }
-    if (cleaned.includes('DL NO') || cleaned.includes('DL NUMBER') || cleaned.includes('LICENCE NO') || cleaned.includes('LICENSE NO')) {
-      scores['DRIVING_LICENSE'].score += 55;
-      scores['DRIVING_LICENSE'].features.push('dl_no_keyword');
-    }
-    if (/\b[A-Z]{2}[0-9]{2}\s?[0-9]{11,13}\b/i.test(text)) {
-      scores['DRIVING_LICENSE'].score += 75;
-      scores['DRIVING_LICENSE'].features.push('dl_number_pattern');
-    }
-    if (cleaned.includes('RTO') || cleaned.includes('TRANSPORT') || cleaned.includes('AUTHORISATION') || cleaned.includes('COV')) {
-      scores['DRIVING_LICENSE'].score += 40;
-      scores['DRIVING_LICENSE'].features.push('dl_rto_keyword');
-    }
-    if (scores['DRIVING_LICENSE'].features.includes('dl_number_pattern') && 
-        (scores['DRIVING_LICENSE'].features.includes('driving_license_keyword') || scores['DRIVING_LICENSE'].features.includes('dl_no_keyword'))) {
-      scores['DRIVING_LICENSE'].score += 30;
-      scores['DRIVING_LICENSE'].features.push('dl_combo_boost');
-    }
+    keyword('DRIVING_LICENSE', 'Driving Licence', 70, 'driving_licence_keyword');
+    keyword('DRIVING_LICENSE', 'Driving License', 70, 'driving_license_keyword');
+    keyword('DRIVING_LICENSE', 'DL No', 55, 'dl_no');
+    keyword('DRIVING_LICENSE', 'Transport Department', 45, 'transport_department');
+    pattern('DRIVING_LICENSE', /\b[A-Z]{2}[0-9]{2}\s?[0-9]{8,13}\b/i, 45, 'dl_number_pattern');
 
-    // BANK_PASSBOOK
-    if (cleaned.includes('ACCOUNT NUMBER') || cleaned.includes('ACC NO') || cleaned.includes('A/C NO') || cleaned.includes('ACCOUNT NO')) {
-      scores['BANK_PASSBOOK'].score += 55;
-      scores['BANK_PASSBOOK'].features.push('account_number_keyword');
-    }
-    if (cleaned.includes('IFSC') || cleaned.includes('IFSC CODE')) {
-      scores['BANK_PASSBOOK'].score += 55;
-      scores['BANK_PASSBOOK'].features.push('ifsc_code_keyword');
-    }
-    if (/\b[A-Z]{4}0[A-Z0-9]{6}\b/i.test(text)) {
-      scores['BANK_PASSBOOK'].score += 75;
-      scores['BANK_PASSBOOK'].features.push('bank_ifsc_pattern');
-    }
-    if (cleaned.includes('BRANCH') || cleaned.includes('BANK') || cleaned.includes('PASSBOOK')) {
-      scores['BANK_PASSBOOK'].score += 40;
-      scores['BANK_PASSBOOK'].features.push('bank_keywords');
-    }
-    if (scores['BANK_PASSBOOK'].features.includes('bank_ifsc_pattern') && 
-        (scores['BANK_PASSBOOK'].features.includes('account_number_keyword') || scores['BANK_PASSBOOK'].features.includes('bank_keywords'))) {
-      scores['BANK_PASSBOOK'].score += 30;
-      scores['BANK_PASSBOOK'].features.push('bank_combo_boost');
-    }
+    keyword('BIRTH_CERTIFICATE', 'Birth Certificate', 80, 'birth_certificate_keyword');
+    keyword('BIRTH_CERTIFICATE', 'Certificate of Birth', 80, 'certificate_of_birth');
+    keyword('BIRTH_CERTIFICATE', 'Date of Birth', 35, 'date_of_birth');
+    keyword('BIRTH_CERTIFICATE', 'Registrar', 45, 'registrar');
+    keyword('BIRTH_CERTIFICATE', 'Registration Number', 45, 'registration_number');
 
-    // MARKS_CARD
-    if (cleaned.includes('MARKS CARD') || cleaned.includes('MARKSHEET') || cleaned.includes('STATEMENT OF MARKS') || cleaned.includes('SSLC') || cleaned.includes('PUC')) {
-      scores['MARKS_CARD'].score += 70;
-      scores['MARKS_CARD'].features.push('marks_card_keyword');
-    }
-    if (cleaned.includes('REGISTER NUMBER') || cleaned.includes('REG. NO') || cleaned.includes('REG NO') || cleaned.includes('ROLL NO') || cleaned.includes('USN') || cleaned.includes('ROLL NUMBER')) {
-      scores['MARKS_CARD'].score += 55;
-      scores['MARKS_CARD'].features.push('register_number_keyword');
-    }
-    if (cleaned.includes('SUBJECT') && (cleaned.includes('TOTAL MARKS') || cleaned.includes('MARKS') || cleaned.includes('GRADE') || cleaned.includes('CGPA') || cleaned.includes('SGPA'))) {
-      scores['MARKS_CARD'].score += 55;
-      scores['MARKS_CARD'].features.push('marks_table_keywords');
-    }
-    if (scores['MARKS_CARD'].features.includes('marks_card_keyword') && 
-        (scores['MARKS_CARD'].features.includes('register_number_keyword') || scores['MARKS_CARD'].features.includes('marks_table_keywords'))) {
-      scores['MARKS_CARD'].score += 30;
-      scores['MARKS_CARD'].features.push('marks_combo_boost');
-    }
+    keyword('MARKS_CARD', 'Marks Card', 80, 'marks_card_keyword');
+    keyword('MARKS_CARD', 'Statement of Marks', 80, 'statement_of_marks');
+    keyword('MARKS_CARD', 'Semester', 30, 'semester');
+    keyword('MARKS_CARD', 'Subject', 35, 'subject');
+    keyword('MARKS_CARD', 'Grade', 30, 'grade');
+    keyword('MARKS_CARD', 'Percentage', 35, 'percentage');
+    keyword('MARKS_CARD', 'CGPA', 45, 'cgpa');
+    keyword('MARKS_CARD', 'SGPA', 45, 'sgpa');
 
-    // BIRTH_CERTIFICATE
-    if (cleaned.includes('BIRTH CERTIFICATE') || cleaned.includes('CERTIFICATE OF BIRTH')) {
-      scores['BIRTH_CERTIFICATE'].score += 75;
-      scores['BIRTH_CERTIFICATE'].features.push('birth_certificate_keyword');
-    }
-    if (cleaned.includes('DATE OF BIRTH') || cleaned.includes('DOB') || cleaned.includes('DATE OF DELIVER') || cleaned.includes('BORN ON')) {
-      scores['BIRTH_CERTIFICATE'].score += 50;
-      scores['BIRTH_CERTIFICATE'].features.push('dob_keyword');
-    }
-    if (cleaned.includes('REGISTRATION NUMBER') || cleaned.includes('REG. NO') || cleaned.includes('BIRTH REGISTRATION') || cleaned.includes('REGISTRATION NO')) {
-      scores['BIRTH_CERTIFICATE'].score += 50;
-      scores['BIRTH_CERTIFICATE'].features.push('birth_reg_keyword');
-    }
-    if (cleaned.includes('FATHER') || cleaned.includes('MOTHER') || cleaned.includes('PARENT')) {
-      scores['BIRTH_CERTIFICATE'].score += 35;
-      scores['BIRTH_CERTIFICATE'].features.push('birth_parents_keyword');
-    }
-    if (scores['BIRTH_CERTIFICATE'].features.includes('birth_certificate_keyword') && 
-        (scores['BIRTH_CERTIFICATE'].features.includes('dob_keyword') || scores['BIRTH_CERTIFICATE'].features.includes('birth_reg_keyword'))) {
-      scores['BIRTH_CERTIFICATE'].score += 30;
-      scores['BIRTH_CERTIFICATE'].features.push('birth_combo_boost');
-    }
+    keyword('BANK_PASSBOOK', 'Passbook', 80, 'passbook_keyword');
+    keyword('BANK_PASSBOOK', 'Account Number', 60, 'account_number');
+    keyword('BANK_PASSBOOK', 'Account No', 55, 'account_no');
+    keyword('BANK_PASSBOOK', 'A/C No', 55, 'account_no_short');
+    keyword('BANK_PASSBOOK', 'IFSC', 60, 'ifsc');
+    keyword('BANK_PASSBOOK', 'Branch', 35, 'branch');
+    keyword('BANK_PASSBOOK', 'Customer ID', 45, 'customer_id');
+    keyword('BANK_PASSBOOK', 'Bank', 30, 'bank');
+    pattern('BANK_PASSBOOK', /\b[A-Z]{4}0[A-Z0-9]{6}\b/i, 70, 'ifsc_pattern');
 
     const candidates = Object.entries(scores)
       .map(([type, data]) => ({ type: type as KycDocumentType, score: data.score, features: data.features }))
-      .filter(c => c.score > 25)
+      .filter(candidate => candidate.score > 0)
       .sort((a, b) => b.score - a.score);
 
-    if (candidates.length > 0) {
-      const best = candidates[0];
-      const runnerUp = candidates[1];
-      let confidence = Math.round(Math.min(99, best.score));
-      if (runnerUp && runnerUp.score >= best.score * 0.85) {
-        confidence = Math.round(confidence * 0.7);
-      }
-      return { type: best.type, confidence, features: best.features };
+    if (candidates.length === 0) return null;
+
+    const best = candidates[0];
+    const runnerUp = candidates[1];
+    let confidence = this.scoreToConfidence(best.score);
+    if (runnerUp && runnerUp.score >= best.score * 0.85) {
+      confidence = Math.max(40, Math.round(confidence * 0.85));
+      best.features.push(`ambiguous_with_${runnerUp.type}`);
     }
 
-    return null;
+    return { type: best.type, confidence, features: best.features };
   }
-
   private async classifyLocally(
     image: PreprocessedImage,
     expectedType?: KycDocumentType,
@@ -452,9 +337,9 @@ export class VisionClassificationService {
       best.features.push(`ambiguous-with:${runnerUp.type}`);
     }
 
-    if (confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
+    if (confidence < 30) {
       documentType = 'UNKNOWN';
-      confidence = Math.min(confidence, CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED - 1);
+      confidence = Math.min(confidence, 29);
     }
 
     const matchesExpectedType = typesMatchExpected(documentType, expectedType);
@@ -750,14 +635,14 @@ export class VisionClassificationService {
       const height = info.height;
       const pixelCount = width * height;
 
-      // ── Estimate text density by analyzing dark pixel concentration ──────
+      // -- Estimate text density by analyzing dark pixel concentration --
       let darkPixels = 0;
       for (let i = 0; i < data.length; i++) {
         if (data[i] < 128) darkPixels++;
       }
       const textDensity = darkPixels / pixelCount;
 
-      // ── Count horizontal lines (likely text rows) ──────────────────────
+      // -- Count horizontal lines (likely text rows) --
       let horizontalLineCount = 0;
       const lineThreshold = Math.floor(width * 0.7); // 70% of width is "a line"
       const rowSample = [];
@@ -775,7 +660,7 @@ export class VisionClassificationService {
         }
       }
 
-      // ── Estimate block count by detecting row clusters ───────────────
+      // -- Estimate block count by detecting row clusters --
       // Cluster consecutive rows into "blocks"
       let blockCount = 0;
       let inBlock = false;
@@ -790,10 +675,10 @@ export class VisionClassificationService {
       }
       blockCount = Math.max(1, blockCount); // At least 1 block
 
-      // ── Estimate average block height ──────────────────────────────
+      // -- Estimate average block height --
       const avgBlockHeight = blockCount > 0 ? height / blockCount : height;
 
-      // ── Detect table structure: aligned rows with consistent spacing ───
+      // -- Detect table structure: aligned rows with consistent spacing --
       const hasTableStructure =
         blockCount >= 8 &&
         horizontalLineCount >= 12 &&
@@ -801,7 +686,7 @@ export class VisionClassificationService {
         rowSample.length >= 4 &&
         Math.abs(rowSample[1] - rowSample[0] - (rowSample[2] - rowSample[1])) < 8;
 
-      // ── Portrait dominance: low line count and block count ─────────────
+      // -- Portrait dominance: low line count and block count --
       const portraitDominant = horizontalLineCount < 8 && blockCount < 6;
 
       this.logger.debug(
@@ -866,9 +751,9 @@ export class VisionClassificationService {
     let confidence = Math.round(Math.min(99, Math.max(0, rawConfidence)));
     let documentType = normalized;
 
-    if (confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
+    if (confidence < 30) {
       documentType = 'UNKNOWN';
-      confidence = Math.min(confidence, CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED - 1);
+      confidence = Math.min(confidence, 29);
     }
 
     return {
@@ -882,7 +767,7 @@ export class VisionClassificationService {
   }
 
   private buildReasoning(type: KycDocumentType, features: string[], confidence: number): string {
-    if (type === 'UNKNOWN' || confidence < CONFIDENCE_THRESHOLDS.REVIEW_REQUIRED) {
+    if (type === 'UNKNOWN' || confidence < 30) {
       return 'Document quality or visual signals insufficient for reliable classification';
     }
     const featureDesc = features
@@ -891,5 +776,15 @@ export class VisionClassificationService {
       .join(', ')
       .replace(/_/g, ' ');
     return `${DOCUMENT_TYPE_LABELS[type]} layout detected${featureDesc ? `: ${featureDesc}` : ''}`;
+  }
+
+  private scoreToConfidence(score: number): number {
+    if (score >= 120) return 99;
+    if (score >= 90) return 95;
+    if (score >= 70) return 90;
+    if (score >= 50) return 85;
+    if (score >= 35) return 75;
+    if (score >= 20) return 60;
+    return Math.max(40, Math.min(69, Math.round(score + 30)));
   }
 }

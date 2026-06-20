@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CONFIDENCE_THRESHOLDS,
   DocumentVerificationResult,
   ExtractedDocumentData,
-  KycDocumentType,
   NO_TEXT_FOUND,
   normalizeDocumentType,
   OcrExtractionResult,
-  typesMatchExpected,
   ValidationResult,
   VerificationStatus,
   VisionClassificationResult,
@@ -30,37 +27,23 @@ export class VerificationService {
     // Strict match: must equal expected type. If expected type not provided, we treat it as matching.
     const matchesExpectedType = normalizedExpected ? (documentType === normalizedExpected) : true;
 
-    const ocrSucceeded = ocr.text && ocr.text !== NO_TEXT_FOUND && ocr.text.trim().length > 10;
-    const typeDetected = documentType !== 'UNKNOWN';
-    const validationPasses = validation.valid === true;
-    const requiredFieldsExtracted = validation.hasAllRequiredFields === true;
-
     let status: VerificationStatus = 'UNKNOWN';
     let confidence = classification.confidence;
 
-    // VERIFIED only when all conditions are met
-    if (ocrSucceeded && typeDetected && matchesExpectedType && requiredFieldsExtracted && validationPasses) {
-      status = 'VERIFIED';
-      confidence = 100;
-    } else {
-      if (documentType === 'UNKNOWN') {
-        status = 'UNKNOWN';
-        confidence = Math.round(Math.min(59, Math.max(30, validation.score || classification.confidence))); // Weak evidence
-      } else if (normalizedExpected && documentType !== normalizedExpected) {
-        status = 'REJECTED';
-        confidence = 0;
+    if (normalizedExpected) {
+      if (documentType === normalizedExpected) {
+        status = 'VERIFIED';
+        confidence = 100;
       } else {
         status = 'REJECTED';
-        // Assign confidence based on validation score
-        const baseScore = validation.score || classification.confidence;
-        if (baseScore >= 86) {
-          confidence = Math.round(Math.min(99, baseScore)); // Strong evidence but not verified
-        } else if (baseScore >= 61) {
-          confidence = Math.round(Math.min(85, baseScore)); // Moderate evidence
-        } else {
-          confidence = Math.round(Math.min(60, Math.max(30, baseScore))); // Weak evidence
-        }
+        confidence = 0;
       }
+    } else if (documentType !== 'UNKNOWN' && classification.confidence >= 70) {
+      status = 'VERIFIED';
+      confidence = Math.max(classification.confidence, validation.score);
+    } else {
+      status = documentType === 'UNKNOWN' ? 'UNKNOWN' : 'REVIEW_REQUIRED';
+      confidence = Math.round(Math.max(classification.confidence, validation.score));
     }
 
     const reasons = this.buildReasons(classification, ocr, validation, status, matchesExpectedType);
@@ -86,7 +69,9 @@ export class VerificationService {
       },
       status,
       verified,
-      reasons,
+      reasons: normalizedExpected && documentType !== normalizedExpected
+        ? ['Uploaded document type does not match required document type']
+        : reasons,
     };
   }
 
@@ -98,6 +83,11 @@ export class VerificationService {
     matchesExpectedType: boolean,
   ): string[] {
     const reasons: string[] = [];
+    const ocrTextEmpty = !ocr.text || ocr.text === NO_TEXT_FOUND || !ocr.text.trim();
+
+    if (ocrTextEmpty && classification.confidence < 30) {
+      return ['Document not detected. Please upload a clear image.'];
+    }
 
     if (classification.detectedFeatures.length > 0) {
       reasons.push(
@@ -115,8 +105,8 @@ export class VerificationService {
       reasons.push(...ocr.qualityIssues.slice(0, 2));
     }
 
-    if (!matchesExpectedType && classification.documentType !== 'UNKNOWN') {
-      reasons.push('Uploaded document does not match the expected document slot');
+    if (!matchesExpectedType) {
+      reasons.push('Uploaded document type does not match required document type');
     }
 
     if (status === 'VERIFIED') {

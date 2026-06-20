@@ -389,23 +389,6 @@ export const LABEL_TO_KYC_TYPE: Record<string, KycDocumentType> = {
   unknown: 'UNKNOWN',
 };
 
-/** Document types that are considered equivalent for expected-type matching */
-export const DOCUMENT_TYPE_ALIASES: Partial<Record<KycDocumentType, KycDocumentType[]>> = {
-  MARKS_CARD: ['SSLC_MARKS', 'PUC_MARKS', 'DEGREE_CERTIFICATE'],
-  SSLC_MARKS: ['MARKS_CARD', 'PUC_MARKS'],
-  PUC_MARKS: ['MARKS_CARD', 'SSLC_MARKS'],
-  INSURANCE_CERTIFICATE: ['HEALTH_INSURANCE_CARD', 'VEHICLE_INSURANCE'],
-  HEALTH_INSURANCE_CARD: ['INSURANCE_CERTIFICATE'],
-  VEHICLE_INSURANCE: ['INSURANCE_CERTIFICATE'],
-  BANK_PASSBOOK: ['BANK_STATEMENT'],
-  BANK_STATEMENT: ['BANK_PASSBOOK'],
-  UTILITY_BILL: ['ELECTRICITY_BILL', 'WATER_BILL', 'GAS_BILL', 'ADDRESS_PROOF', 'PROPERTY_TAX_RECEIPT'],
-  ELECTRICITY_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
-  WATER_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
-  GAS_BILL: ['UTILITY_BILL', 'ADDRESS_PROOF'],
-  ADDRESS_PROOF: ['UTILITY_BILL', 'ELECTRICITY_BILL', 'WATER_BILL', 'GAS_BILL', 'PROPERTY_TAX_RECEIPT'],
-};
-
 export function normalizeDocumentType(input?: string): KycDocumentType | undefined {
   if (!input) return undefined;
   const normalized = input.toLowerCase().replace(/[^a-z0-9]/g, '');
