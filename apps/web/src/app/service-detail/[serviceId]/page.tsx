@@ -21,9 +21,8 @@ import {
 import { Application, ApplicationSummary, RequiredDocument, Service, UploadedDocument } from '@connect/types';
 import { Badge } from '../../../components/Badge';
 import { UploadCard } from '../../../components/UploadCard';
-import { Sidebar } from '../../../components/Sidebar';
+import { PageLayout } from '../../../components/layout/PageLayout';
 import { Skeleton } from '../../../components/Skeleton';
-import { Topbar } from '../../../components/Topbar';
 import { useAuth } from '../../../lib/AuthContext';
 import { cn } from '../../../lib/utils';
 import apiClient from '../../../services/apiClient';
@@ -389,7 +388,7 @@ export default function ServiceDetailPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F7F8FB] text-slate-950">
+    <PageLayout>
       {toastMessage && (
         <div className="fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-700 shadow-2xl">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -399,10 +398,7 @@ export default function ServiceDetailPage() {
           </button>
         </div>
       )}
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-[280px]">
-        <Topbar />
-        <main className="mx-auto grid w-full max-w-[1440px] flex-1 gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-10 lg:py-10">
+      <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section className="min-w-0 space-y-6">
             <Link href="/services" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-blue-600">
               <ChevronLeft className="h-4 w-4" />
@@ -599,8 +595,7 @@ export default function ServiceDetailPage() {
               </div>
             </div>
           </aside>
-        </main>
       </div>
-    </div>
+    </PageLayout>
   );
 }

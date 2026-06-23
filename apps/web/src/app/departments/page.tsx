@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Sidebar } from '../../components/Sidebar';
-import { Topbar } from '../../components/Topbar';
+import { PageLayout } from '../../components/layout/PageLayout';
 import { 
   Car, 
   FileText, 
@@ -74,11 +73,7 @@ export default function DepartmentsPage() {
   }, [query, departments]);
 
   return (
-    <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-[280px]">
-        <Topbar />
-        <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
+    <PageLayout>
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Departments</h2>
@@ -159,8 +154,6 @@ export default function DepartmentsPage() {
               })
             )}
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

@@ -1,15 +1,10 @@
 'use client';
 
-import { Sidebar } from '../../components/Sidebar';
-import { Topbar } from '../../components/Topbar';
+import { PageLayout } from '../../components/layout/PageLayout';
 import { LifeBuoy, Mail, Phone, MessageCircle } from "lucide-react";
 export default function SupportPage() {
   return (
-    <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-[280px]">
-        <Topbar />
-        <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
+    <PageLayout>
           <div className="mb-10">
             <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Help & Support</h2>
             <p className="text-slate-500 text-[15px] font-medium mt-1">Need assistance? Our support team is ready to help you complete your document submission.</p>
@@ -43,8 +38,6 @@ export default function SupportPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

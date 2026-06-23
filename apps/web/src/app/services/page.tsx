@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Building2, FileCheck2, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { RequiredDocument, Service } from '@connect/types';
-import { Sidebar } from '../../components/Sidebar';
-import { Topbar } from '../../components/Topbar';
+import { PageLayout } from '../../components/layout/PageLayout';
 import { Skeleton } from '../../components/Skeleton';
 import apiClient from '../../services/apiClient';
 
@@ -70,11 +69,7 @@ export default function ServicesPage() {
   const totalDocuments = Object.values(documentCountByService).reduce((sum, count) => sum + count, 0);
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F7F8FB] text-slate-950">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col pl-0 lg:pl-[280px]">
-        <Topbar />
-        <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    <PageLayout>
           <section className="overflow-hidden rounded-[2rem] border border-slate-200/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
             <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
               <div>
@@ -170,8 +165,6 @@ export default function ServicesPage() {
               ))
             )}
           </section>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

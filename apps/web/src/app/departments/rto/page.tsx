@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sidebar } from '../../../components/Sidebar';
-import { Topbar } from '../../../components/Topbar';
+import { PageLayout } from '../../../components/layout/PageLayout';
 import { 
   Car, 
   ChevronRight, 
@@ -68,11 +67,7 @@ const services = [
 
 export default function RtoServicesPage() {
   return (
-    <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-[280px]">
-        <Topbar />
-        <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
+    <PageLayout>
           <nav className="flex items-center gap-2 text-[13px] text-slate-400 mb-8 font-medium">
             <Link href="/dashboard" className="hover:text-[#1D61FF] transition-colors">Dashboard</Link>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -147,8 +142,6 @@ export default function RtoServicesPage() {
               </Link>
             ))}
           </div>
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

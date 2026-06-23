@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageLayout } from '../../components/layout/PageLayout';
 import Link from 'next/link';
-import { Sidebar } from '../../components/Sidebar';
-import { Topbar } from '../../components/Topbar';
 import apiClient from '../../services/apiClient';
 import { Application, ApplicationStatus, Service } from '@connect/types';
 import { useAuth } from '../../lib/AuthContext';
@@ -283,8 +282,7 @@ export default function ApplicationsPage() {
   ];
 
   return (
-    <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-    
+    <PageLayout>
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold border ${
           toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-white border-red-100 text-red-700'
@@ -293,11 +291,6 @@ export default function ApplicationsPage() {
           {toast.text}
         </div>
       )}
-
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-[280px]">
-        <Topbar />
-        <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
 
           <div className="flex items-center justify-between mb-10">
             <div>
@@ -427,8 +420,6 @@ export default function ApplicationsPage() {
               )}
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sidebar } from '../../components/Sidebar';
-import { Topbar } from '../../components/Topbar';
+import { PageLayout } from '../../components/layout/PageLayout';
 import { useAuth } from '../../lib/AuthContext';
 import apiClient from '../../services/apiClient';
 import { UploadedDocument, RequiredDocument, Service } from '@connect/types';
@@ -345,11 +344,7 @@ export default function WalletPage() {
   ];
 
   return (
-    <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-[280px]">
-        <Topbar />
-        <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
+    <PageLayout>
 
           {/* header */}
           <div className="flex items-center justify-between mb-10">
@@ -499,8 +494,6 @@ export default function WalletPage() {
               </div>
             )
           )}
-        </main>
-      </div>
-    </div>
+    </PageLayout>
   );
 }
