@@ -89,10 +89,6 @@ export class DocumentsService {
     return newDocument.save();
   }
 
-  /**
-   * Pipeline: Upload -> OCR -> Document Detection -> Validation -> Verification.
-   * OCR runs before classification because deterministic OCR text rules are authoritative.
-   */
   async processDocument(input: ProcessDocumentInput): Promise<DocumentIntelligenceResponse> {
     const totalStart = performance.now();
     const { buffer, mimeType, expectedDocumentType, userId, persist = false } = input;
@@ -105,7 +101,6 @@ export class DocumentsService {
       `[UPLOAD] Start â€” file="${input.filename}" mimeType="${mimeType}" expectedType="${expectedDocumentType}"`,
     );
 
-    // â”€â”€ Step 1: Preprocessing & OCR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const tOcrStart = performance.now();
     const ocrResult = await this.ocrService.extractFromFile(buffer, mimeType);
     const ocrMs = Math.round(performance.now() - tOcrStart);
@@ -113,13 +108,11 @@ export class DocumentsService {
       `[OCR] ${ocrMs}ms â€” chars=${ocrResult.text?.length ?? 0} ocrConfidence=${ocrResult.confidence?.toFixed(1)}%`,
     );
 
-    // â”€â”€ Step 2: Text Extraction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const extractedText =
       ocrResult.text && ocrResult.text !== NO_TEXT_FOUND
         ? ocrResult.text.slice(0, 5000)
         : NO_TEXT_FOUND;
 
-    // â”€â”€ Step 3: Document Classification (using OCR text as primary signal) â”€â”€â”€
     const tClassStart = performance.now();
     const initialClassification = await this.visionClassificationService.classify(
       buffer,
@@ -190,7 +183,6 @@ export class DocumentsService {
       total: totalMs,
     };
 
-    // Structured JSON log for the pipeline result
     const logObj = {
       expectedType: expectedDocumentType || 'NOT_SPECIFIED',
       detectedType: classification.documentType,
@@ -264,7 +256,7 @@ export class DocumentsService {
       filename,
       mimetype,
       source: 'intelligence',
-      // â”€â”€ Include verification result for complete audit trail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  
       verificationStatus: result.verification?.status,
       verified: result.verification?.verified,
       confidence: result.verification?.confidence,

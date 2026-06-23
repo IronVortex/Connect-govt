@@ -77,8 +77,6 @@ function normalizeLegacyStatus(status?: string): VerificationStatus {
   return map[status || ''] || 'PENDING';
 }
 
-/** Maps raw backend enum keys to human-readable labels.
- * Falls through for already-formatted strings (e.g. "Passport Size Photo"). */
 const DOCUMENT_TYPE_LABEL_MAP: Record<string, string> = {
   AADHAAR: 'Aadhaar Card',
   PAN: 'PAN Card',
@@ -122,7 +120,7 @@ const DOCUMENT_TYPE_LABEL_MAP: Record<string, string> = {
 
 function resolveDocumentLabel(raw?: string): string {
   if (!raw) return 'Unknown';
-  // If it's already a human-readable label (contains spaces or lowercase letters), pass through
+
   if (DOCUMENT_TYPE_LABEL_MAP[raw]) return DOCUMENT_TYPE_LABEL_MAP[raw];
   return raw;
 }
@@ -138,7 +136,6 @@ function normalizeUploadResponse(data: any): {
     status: normalizeUploadStatus(data),
     detectedType: normalizeUploadDetectedType(data),
     confidence: normalizeUploadConfidence(data),
-    // Live upload response uses `reasons`; persisted DB record uses `detectionReasons`
     reasons: data?.reasons || data?.detectionReasons,
     extractedFields: data?.extractedFields,
   };
@@ -159,7 +156,6 @@ export default function ServiceDetailPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Application state
   const [application, setApplication] = useState<Application | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -179,7 +175,7 @@ export default function ServiceDetailPage() {
       setUploads((uploadsRes.data || []).map(normalizeUploadDocument));
       setSummary(summaryRes.data || null);
     } catch (err: any) {
-      // if unauthorized, signal auth context to handle redirect
+      console.error(err);
       if (err?.response?.status === 401) {
         if (typeof window !== 'undefined') window.dispatchEvent(new Event('connect:unauthorized'));
       }
@@ -218,7 +214,6 @@ export default function ServiceDetailPage() {
     };
   }, [serviceId]);
 
-  // Load existing application for this service
   const loadApplication = useCallback(async () => {
     if (!user || !serviceId) return;
     try {
@@ -230,7 +225,6 @@ export default function ServiceDetailPage() {
       });
       setApplication(existing ?? null);
     } catch {
-      // silently fail — application creation still works
     }
   }, [user, serviceId]);
 
@@ -241,7 +235,6 @@ export default function ServiceDetailPage() {
     }
   }, [authLoading, loadUserUploadState, loadApplication]);
 
-  // Create application (DRAFT) then submit it
   const handleSubmitApplication = async () => {
     if (!user) {
       setSubmitMessage({ type: 'error', text: 'Please sign in to submit an application.' });
@@ -251,15 +244,12 @@ export default function ServiceDetailPage() {
     setSubmitMessage(null);
     try {
       let app = application;
-
-      // Step 1: create if not already exists
       if (!app) {
         const createRes = await apiClient.post<Application>('/applications', { serviceId });
         app = createRes.data;
         setApplication(app);
       }
 
-      // Step 2: submit (DRAFT → SUBMITTED)
       if (app.status === 'DRAFT' || app.status === 'NEEDS_CORRECTION') {
         const updateRes = await apiClient.put<Application>(`/applications/${app._id}`, { status: 'SUBMITTED' });
         app = updateRes.data;
@@ -275,7 +265,6 @@ export default function ServiceDetailPage() {
     }
   };
 
-  // clear transient upload state when user logs out
   useEffect(() => {
     if (!user) setUploadStateByDocumentId({});
   }, [user]);
@@ -494,7 +483,6 @@ export default function ServiceDetailPage() {
           </section>
 
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-            {/* Upload progress card */}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
               <div className="flex items-center justify-between">
                 <div>
@@ -529,7 +517,6 @@ export default function ServiceDetailPage() {
                 ))}
               </div>
 
-              {/* Submit / status block */}
               <div className="mt-6">
                 {application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' ? (
                   <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center space-y-2">
@@ -588,7 +575,6 @@ export default function ServiceDetailPage() {
               </div>
             </div>
 
-            {/* Verification summary card */}
             <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">Verification summary</p>
               <div className="mt-5 grid grid-cols-3 gap-3">

@@ -23,8 +23,6 @@ import {
   XCircle,
 } from 'lucide-react';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 function getServiceName(app: Application): string {
   if (!app.service) return '—';
   return typeof app.service === 'string' ? app.service : (app.service as Service).name;
@@ -43,8 +41,6 @@ function formatDate(dateStr?: string) {
     year: 'numeric',
   });
 }
-
-// ─── status config ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   ApplicationStatus,
@@ -88,8 +84,6 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// ─── status badge ─────────────────────────────────────────────────────────────
-
 function StatusBadge({ status }: { status: ApplicationStatus }) {
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
@@ -101,13 +95,10 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
   );
 }
 
-// ─── timeline stepper ────────────────────────────────────────────────────────
-
 const TIMELINE: ApplicationStatus[] = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED'];
 
 function Timeline({ status }: { status: ApplicationStatus }) {
   const activeIdx = TIMELINE.indexOf(status);
-  // rejected & needs_correction treated as stalled after SUBMITTED
   const effectiveIdx = status === 'REJECTED' || status === 'NEEDS_CORRECTION' ? 1 : activeIdx;
 
   return (
@@ -139,8 +130,6 @@ function Timeline({ status }: { status: ApplicationStatus }) {
   );
 }
 
-// ─── application card ─────────────────────────────────────────────────────────
-
 function AppCard({
   app,
   onDelete,
@@ -159,7 +148,6 @@ function AppCard({
 
   return (
     <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm shadow-slate-200/40 hover:border-[#1D61FF]/20 hover:shadow-md transition-all duration-200 flex flex-col gap-4">
-      {/* header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-[#F0F5FF] flex items-center justify-center text-[#1D61FF] shrink-0">
@@ -173,13 +161,10 @@ function AppCard({
         <StatusBadge status={app.status} />
       </div>
 
-      {/* status description */}
       <p className="text-xs text-slate-500 font-medium leading-relaxed">{cfg.description}</p>
 
-      {/* timeline */}
       <Timeline status={app.status} />
 
-      {/* meta */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-slate-50 rounded-xl p-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Created</p>
@@ -191,7 +176,6 @@ function AppCard({
         </div>
       </div>
 
-      {/* actions */}
       <div className="flex gap-2 mt-auto pt-1">
         {serviceId && (
           <Link
@@ -228,8 +212,6 @@ function AppCard({
     </div>
   );
 }
-
-// ─── main page ───────────────────────────────────────────────────────────────
 
 export default function ApplicationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -290,7 +272,6 @@ export default function ApplicationsPage() {
     }
   };
 
-  // group by status
   const active = applications.filter((a) => !['APPROVED', 'REJECTED'].includes(a.status));
   const completed = applications.filter((a) => ['APPROVED', 'REJECTED'].includes(a.status));
 
@@ -303,7 +284,7 @@ export default function ApplicationsPage() {
 
   return (
     <div className="flex w-full min-h-screen bg-[#F8FAFC]">
-      {/* Toast */}
+    
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold border ${
           toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-white border-red-100 text-red-700'
@@ -318,7 +299,6 @@ export default function ApplicationsPage() {
         <Topbar />
         <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
 
-          {/* header */}
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">
@@ -362,7 +342,6 @@ export default function ApplicationsPage() {
             ))}
           </div>
 
-          {/* content */}
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -406,7 +385,7 @@ export default function ApplicationsPage() {
             </div>
           ) : (
             <div className="space-y-10">
-              {/* Active */}
+            
               {active.length > 0 && (
                 <section>
                   <h3 className="text-lg font-extrabold text-[#0F172A] mb-5">
@@ -427,7 +406,6 @@ export default function ApplicationsPage() {
                 </section>
               )}
 
-              {/* Completed */}
               {completed.length > 0 && (
                 <section>
                   <h3 className="text-lg font-extrabold text-[#0F172A] mb-5">

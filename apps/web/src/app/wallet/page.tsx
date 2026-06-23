@@ -24,8 +24,6 @@ import {
   Layers,
 } from 'lucide-react';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 function getDocName(doc: UploadedDocument): string {
   const rd = doc.requiredDocument;
   return typeof rd === 'string' ? doc.filename : (rd as RequiredDocument).name;
@@ -55,7 +53,6 @@ function formatSize(bytes: number) {
 }
 
 function expiryDaysLeft(doc: UploadedDocument & { expiresAt?: string }): number | null {
-  // Use stored expiresAt if available; otherwise estimate 90 days from createdAt
   const expiryStr = (doc as any).expiresAt ?? null;
   if (expiryStr) {
     const days = Math.ceil((new Date(expiryStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -65,8 +62,6 @@ function expiryDaysLeft(doc: UploadedDocument & { expiresAt?: string }): number 
   const expiry = new Date(doc.createdAt).getTime() + 90 * 24 * 60 * 60 * 1000;
   return Math.ceil((expiry - Date.now()) / (1000 * 60 * 60 * 24));
 }
-
-// ─── status badge ────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<
   string,
@@ -160,8 +155,6 @@ function FileIcon({ mimetype }: { mimetype: string }) {
   );
 }
 
-// ─── download handler ────────────────────────────────────────────────────────
-
 async function downloadFile(uploadId: string, filename: string) {
   try {
     const res = await apiClient.get(`/upload/files/${uploadId}`, {
@@ -177,8 +170,6 @@ async function downloadFile(uploadId: string, filename: string) {
     alert('Download failed. Please try again.');
   }
 }
-
-// ─── wallet card ─────────────────────────────────────────────────────────────
 
 function WalletDocCard({ doc }: { doc: UploadedDocument }) {
   const daysLeft = expiryDaysLeft(doc);
@@ -198,7 +189,6 @@ function WalletDocCard({ doc }: { doc: UploadedDocument }) {
         <StatusBadge status={doc.detectionStatus} />
       </div>
 
-      {/* meta */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-slate-50 rounded-xl p-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">File</p>
@@ -222,7 +212,6 @@ function WalletDocCard({ doc }: { doc: UploadedDocument }) {
         </div>
       </div>
 
-      {/* confidence */}
       {doc.confidence !== undefined && doc.confidence > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -238,7 +227,6 @@ function WalletDocCard({ doc }: { doc: UploadedDocument }) {
         </div>
       )}
 
-      {/* expiry warning */}
       {isExpiringSoon && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
           <CalendarClock className="w-4 h-4 text-amber-500 shrink-0" />
@@ -248,7 +236,6 @@ function WalletDocCard({ doc }: { doc: UploadedDocument }) {
         </div>
       )}
 
-      {/* download */}
       <button
         onClick={() => downloadFile(doc._id, doc.filename)}
         className="mt-auto w-full flex items-center justify-center gap-2 py-2.5 border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-[#1D61FF] hover:text-white hover:border-[#1D61FF] transition-all duration-200 active:scale-[0.98]"
@@ -259,9 +246,6 @@ function WalletDocCard({ doc }: { doc: UploadedDocument }) {
     </div>
   );
 }
-
-// ─── history row ─────────────────────────────────────────────────────────────
-
 function HistoryRow({ doc }: { doc: UploadedDocument }) {
   return (
     <div className="flex items-center gap-4 py-4 border-b border-slate-50 last:border-0">
@@ -284,8 +268,6 @@ function HistoryRow({ doc }: { doc: UploadedDocument }) {
     </div>
   );
 }
-
-// ─── main page ───────────────────────────────────────────────────────────────
 
 export default function WalletPage() {
   const { user, loading: authLoading } = useAuth();

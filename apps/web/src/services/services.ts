@@ -19,7 +19,6 @@ export async function getServicesForDepartment(
     return departmentServices;
   }
 
-  // Fallback: filter services by department if endpoint returns empty
   const allServicesRes = await apiClient.get<Service[]>('/services');
   return (allServicesRes.data || []).filter(
     (service) => getServiceDepartmentId(service) === departmentId,

@@ -33,8 +33,6 @@ export default function ServicesPage() {
           if (!mounted) return;
 
           setServices(loadedServices);
-
-          // fetch document counts in parallel but don't fail the whole page
           const counts = await Promise.allSettled(
             loadedServices.map((service) => apiClient.get<RequiredDocument[]>(`/services/${service._id}/documents`)),
           );

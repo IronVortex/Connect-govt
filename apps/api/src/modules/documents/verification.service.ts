@@ -24,7 +24,6 @@ export class VerificationService {
     const documentType = classification.documentType;
     const documentTypeLabel = DOCUMENT_TYPE_LABELS[documentType];
     
-    // Strict match: must equal expected type. If expected type not provided, we treat it as matching.
     const matchesExpectedType = normalizedExpected ? (documentType === normalizedExpected) : true;
     const ocrTextLength = ocr.text && ocr.text !== NO_TEXT_FOUND ? ocr.text.trim().length : 0;
     const validationPasses = validation.valid === true;

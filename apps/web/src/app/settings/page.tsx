@@ -26,7 +26,6 @@ import {
 export default function SettingsPage() {
   const { user, refreshProfile } = useAuth();
 
-  // Profile Form States
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [profileImage, setProfileImage] = useState('');
@@ -37,27 +36,23 @@ export default function SettingsPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Security Form States
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [securityMessage, setSecurityMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Password Visibility States
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Notification Preferences States
   const [appStatusUpdates, setAppStatusUpdates] = useState(true);
   const [newServiceAnnouncements, setNewServiceAnnouncements] = useState(false);
 
-  // Danger Zone States
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Active Applications state
+
   const [activeApplications, setActiveApplications] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,18 +84,16 @@ export default function SettingsPage() {
       setNationality(user.nationality || 'indian');
       setAddress(user.address || '');
 
-      // Fetch active applications count
       apiClient.get('/applications').then((res) => {
         const apps = res.data || [];
         const active = apps.filter((a: any) => !['APPROVED', 'REJECTED'].includes(a.status));
         setActiveApplications(active.length);
       }).catch(() => {
-        // Error silently handled by UI
+        
       });
     }
   }, [user]);
 
-  // Handle Photo Upload & Base64 conversion
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
   };
@@ -135,7 +128,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Submit Profile Changes
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMessage(null);
@@ -163,7 +155,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Submit Password Change
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecurityMessage(null);
@@ -205,14 +196,12 @@ export default function SettingsPage() {
       <div className="flex-1 flex flex-col pl-[280px]">
         <Topbar />
         <main className="flex-1 p-10 max-w-[1400px] mx-auto w-full">
-          {/* Header */}
           <div className="mb-10">
             <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Profile Settings</h2>
             <p className="text-slate-500 text-[15px] font-medium mt-1">Manage your account details, security credentials, and profile image.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Profile Card & General Info */}
             <div className="lg:col-span-2 space-y-8">
               <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
@@ -221,7 +210,6 @@ export default function SettingsPage() {
                 </div>
 
                 <form onSubmit={handleSaveProfile} className="space-y-6">
-                  {/* Profile Photo Section */}
                   <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-slate-50">
                     <div className="relative group cursor-pointer" onClick={handlePhotoClick}>
                       <div className="w-28 h-28 rounded-full border-4 border-slate-50 overflow-hidden shadow-sm relative bg-slate-100 flex items-center justify-center">
@@ -282,7 +270,6 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  {/* Profile Form Messages */}
                   {profileMessage && (
                     <div className={`p-4 rounded-xl flex items-start gap-3 text-sm ${
                       profileMessage.type === 'success' 
@@ -297,8 +284,6 @@ export default function SettingsPage() {
                       <p className="font-medium">{profileMessage.text}</p>
                     </div>
                   )}
-
-                  {/* Form Inputs */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="name">
@@ -418,7 +403,6 @@ export default function SettingsPage() {
                 </form>
               </div>
 
-              {/* Notification Preferences */}
               <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
                   <Bell className="w-5 h-5 text-blue-600" />
@@ -426,7 +410,6 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Row 1 */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <label className="text-[15px] font-bold text-[#0F172A] cursor-pointer" onClick={() => setAppStatusUpdates(!appStatusUpdates)}>
@@ -449,7 +432,6 @@ export default function SettingsPage() {
                     </button>
                   </div>
 
-                  {/* Row 2 */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <label className="text-[15px] font-bold text-[#0F172A] cursor-pointer" onClick={() => setNewServiceAnnouncements(!newServiceAnnouncements)}>
@@ -474,7 +456,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Linked Applications Summary Card */}
               <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
                   <Briefcase className="w-5 h-5 text-blue-600" />
@@ -499,7 +480,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Right Column: Security (Password Change) */}
             <div className="space-y-8">
               <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
                 <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-5">
@@ -508,7 +488,6 @@ export default function SettingsPage() {
                 </div>
 
                 <form onSubmit={handleUpdatePassword} className="space-y-6">
-                  {/* Security Form Messages */}
                   {securityMessage && (
                     <div className={`p-4 rounded-xl flex items-start gap-3 text-sm ${
                       securityMessage.type === 'success' 
@@ -525,7 +504,6 @@ export default function SettingsPage() {
                   )}
 
                   <div className="space-y-4">
-                    {/* Current Password */}
                     <div className="space-y-2">
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="currentPassword">
                         Current Password
@@ -551,7 +529,6 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* New Password */}
                     <div className="space-y-2">
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="newPassword">
                         New Password
@@ -577,7 +554,6 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* Confirm Password */}
                     <div className="space-y-2">
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-400" htmlFor="confirmPassword">
                         Confirm New Password
@@ -618,7 +594,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Danger Zone Section */}
           <div className="mt-8">
             <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/40">
               <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-5">

@@ -12,11 +12,6 @@ import { PreprocessingService } from './preprocessing.service';
 const MIN_DIGITAL_TEXT_LENGTH = 25;
 const MAX_PDF_OCR_PAGES = 10;
 
-// ---------------------------------------------------------------------------
-// Module-level Tesseract singleton
-// Keeping the worker alive between requests eliminates the 15-20s cold-start
-// that occurred when createWorker+terminate was called on every request.
-// ---------------------------------------------------------------------------
 let _tesseractWorkerPromise: Promise<any> | null = null;
 
 async function getTesseractWorker(): Promise<any> {
@@ -84,8 +79,7 @@ export class OcrService {
     lines: OcrLine[];
   }> {
     let ocrResult = await this.performDetailedOcr(preprocessedBuffer, pageNumber);
-    
-    // Check if we should try rotations due to low confidence or no text
+ 
     if (ocrResult.confidence < 60 || ocrResult.text.trim().length < 15) {
       this.logger.log(`[OCR] Low confidence (${ocrResult.confidence.toFixed(1)}%) or low text length on page ${pageNumber}. Trying rotation checks...`);
       let bestResult = ocrResult;
@@ -106,7 +100,6 @@ export class OcrService {
       ocrResult = bestResult;
     }
 
-    // Try raw image fallback if still very low confidence and original buffer is provided
     if ((ocrResult.confidence < 50 || ocrResult.text.trim().length < 10) && originalBuffer?.length) {
       try {
         this.logger.log(`[OCR] Preprocessing was ineffective for page ${pageNumber}. Trying raw image...`);
@@ -302,10 +295,6 @@ export class OcrService {
     return { pages, width, height, qualityIssues: [...new Set(qualityIssues)] };
   }
 
-  /**
-   * Runs Tesseract recognition using the shared singleton worker.
-   * The worker is initialized once and reused â€” no per-request cold-start.
-   */
   private async performDetailedOcr(
     buffer: Buffer,
     pageNumber: number,
@@ -368,7 +357,6 @@ export class OcrService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`[OCR] Tesseract recognition failed: ${message}`);
-      // Reset singleton so next request gets a fresh worker
       _tesseractWorkerPromise = null;
       return { text: '', confidence: 0, pages: [], blocks: [], lines: [] };
     }

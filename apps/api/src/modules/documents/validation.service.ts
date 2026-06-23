@@ -83,7 +83,6 @@ export class ValidationService {
     let hasAllRequiredFields = false;
     const issues: string[] = [];
 
-    // Evaluate based on documentType
     switch (documentType) {
       case 'AADHAAR': {
         const idRaw = extractedData.idNumber ? String(extractedData.idNumber).replace(/\s/g, '') : '';

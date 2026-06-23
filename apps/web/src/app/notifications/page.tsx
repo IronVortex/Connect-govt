@@ -20,8 +20,6 @@ import {
   XCircle,
 } from 'lucide-react';
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
 type NotificationItem = {
   id: string;
   title: string;
@@ -30,8 +28,6 @@ type NotificationItem = {
   category: 'upload' | 'application' | 'system';
   read: boolean;
 };
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '—';
@@ -116,8 +112,6 @@ function applicationToNotification(app: Application): NotificationItem {
   };
 }
 
-// ─── icon & style per category ────────────────────────────────────────────────
-
 function categoryIcon(n: NotificationItem) {
   if (n.category === 'upload') {
     if (n.title.includes('verified') || n.title.includes('detected'))
@@ -140,12 +134,8 @@ function categoryIcon(n: NotificationItem) {
   return { Icon: Info, bg: 'bg-[#EEF2FF]', color: 'text-[#1D4ED8]' };
 }
 
-// ─── filter tabs ──────────────────────────────────────────────────────────────
-
 const FILTERS = ['All', 'Uploads', 'Applications'] as const;
 type Filter = (typeof FILTERS)[number];
-
-// ─── main page ────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -172,8 +162,6 @@ export default function NotificationsPage() {
       const appNotifs: NotificationItem[] = (appsRes.data ?? [])
         .sort((a, b) => new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime())
         .map(applicationToNotification);
-
-      // interleave by recency — just concat and sort by time string presence
       setNotifications([...uploadNotifs, ...appNotifs]);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load notifications.');
@@ -246,7 +234,6 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          {/* filter tabs */}
           <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl w-fit mb-8">
             {FILTERS.map((f) => {
               const count =
@@ -274,7 +261,6 @@ export default function NotificationsPage() {
             })}
           </div>
 
-          {/* content */}
           {loading ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -314,7 +300,6 @@ export default function NotificationsPage() {
                       isRead ? 'border-slate-100 opacity-70' : 'border-slate-200 hover:border-[#1D61FF]/20'
                     }`}
                   >
-                    {/* unread dot */}
                     <div className="relative shrink-0">
                       <div className={`w-12 h-12 rounded-3xl ${bg} flex items-center justify-center ${color}`}>
                         <Icon className="w-5 h-5" />

@@ -62,7 +62,6 @@ export type DetectionStatus = VerificationStatus;
 
 export const NO_TEXT_FOUND = 'NO_TEXT_FOUND';
 
-/** Confidence thresholds on 0–100 scale */
 export const CONFIDENCE_THRESHOLDS = {
   STRONG_MATCH: 85,
   REVIEW_REQUIRED: 70,
@@ -230,8 +229,6 @@ export interface DocumentVerificationResult {
   verified: boolean;
   reasons: string[];
 }
-
-/** Per-stage wall-clock times in milliseconds (included in non-production responses). */
 export interface PipelineTimings {
   preprocess: number;
   classification: number;
@@ -246,14 +243,12 @@ export interface DocumentIntelligenceResponse {
   validation: ValidationResult;
   extractedText: string;
   verification?: DocumentVerificationResult;
-  /** Only populated in non-production environments */
   timings?: PipelineTimings;
 }
 
 export interface LegacyAnalysisResult {
   detectedType: string;
   documentType: string;
-  /** Enum key for database storage (e.g., "PASSPORT_PHOTO") */
   detectedTypeEnum?: KycDocumentType;
   verified: boolean;
   status: VerificationStatus;

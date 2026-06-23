@@ -7,14 +7,12 @@ import {
   NO_TEXT_FOUND,
 } from './types/document-intelligence.types';
 
-// Standalone config service mock
 class MockConfigService {
   get(key: string) {
-    return null; // Local fallback only
+    return null; 
   }
 }
 
-// Standalone preprocessing service mock
 class MockPreprocessingService {
   toClassificationImage() {
     return null;
@@ -25,9 +23,7 @@ class MockPreprocessingService {
 }
 
 async function runTests() {
-  console.log('==================================================');
   console.log('STARTING CONNECT-GOV PIPELINE VERIFICATION TESTS');
-  console.log('==================================================\n');
 
   const validationService = new ValidationService();
   const verificationService = new VerificationService();
@@ -38,7 +34,7 @@ async function runTests() {
     new MockPreprocessingService() as any,
   );
 
-  // Define test cases for 7 supported document types
+  
   const testCases = [
     {
       name: 'Aadhaar Card - Complete & Correct',
@@ -166,7 +162,7 @@ async function runTests() {
     console.log(`--- Running test case: "${tc.name}" ---`);
     console.log(`Expected Document Type: ${tc.expectedType}`);
 
-    // 1. Text Classification
+   
     const textClassification = (classificationService as any).classifyByTextContent(tc.actualText);
     
     let detectedType: KycDocumentType = 'UNKNOWN';
@@ -182,7 +178,6 @@ async function runTests() {
     console.log(`Detected Type (via OCR Text): ${detectedType}`);
     console.log(`Classification Confidence: ${classificationConfidence}%`);
 
-    // Mock VisionClassificationResult
     const classificationResult = {
       documentType: detectedType,
       confidence: classificationConfidence,
@@ -192,7 +187,6 @@ async function runTests() {
       matchesExpectedType: detectedType === tc.expectedType,
     };
 
-    // 2. Validate
     const validationResult = validationService.validate(
       detectedType,
       tc.actualText,
@@ -204,7 +198,6 @@ async function runTests() {
     console.log(`Validation Valid: ${validationResult.valid}`);
     console.log(`Validation Issues: ${JSON.stringify(validationResult.issues)}`);
 
-    // Mock OcrExtractionResult
     const ocrResult: OcrExtractionResult = {
       text: tc.actualText,
       confidence: 90,
@@ -216,8 +209,6 @@ async function runTests() {
     };
 
     const extractedData = validationService.parseFields(detectedType, tc.actualText);
-
-    // 3. Verification Resolve
     const verificationResult = verificationService.resolve(
       classificationResult,
       ocrResult,
@@ -231,7 +222,6 @@ async function runTests() {
     console.log(`Final Verification Confidence: ${verificationResult.confidence}%`);
     console.log(`Verification Reasons: ${JSON.stringify(verificationResult.reasons)}`);
 
-    // Assertions
     let tcPassed = true;
     if (tc.assertVerified !== verificationResult.verified) {
       console.error(`❌ FAILED: Expected verified=${tc.assertVerified}, got=${verificationResult.verified}`);
