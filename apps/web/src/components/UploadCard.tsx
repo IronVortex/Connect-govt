@@ -26,7 +26,6 @@ type UploadState = {
   };
   reasons?: string[];
   extractedFields?: Record<string, unknown>;
-  matchesExpectedType?: boolean;
 };
 
 interface UploadCardProps {
@@ -35,6 +34,7 @@ interface UploadCardProps {
   state?: UploadState;
   isUploading: boolean;
   isDragging: boolean;
+  disabled?: boolean;
   onFileSelect: (file: File | null) => void;
   onDragChange: (isDragging: boolean) => void;
 }
@@ -58,12 +58,21 @@ function getExtractedFieldEntries(fields?: Record<string, unknown>): Array<[stri
     });
 }
 
+function getUploadStage(progress: number) {
+  if (progress < 15) return 'Preparing upload';
+  if (progress < 55) return 'Uploading file';
+  if (progress < 75) return 'AI scanning';
+  if (progress < 95) return 'Verification in progress';
+  return 'Finalizing result';
+}
+
 export const UploadCard: React.FC<UploadCardProps> = ({
   document,
   persistedUpload,
   state,
   isUploading,
   isDragging,
+  disabled = false,
   onFileSelect,
   onDragChange,
 }) => {
@@ -74,7 +83,8 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   const reasons = state?.reasons ?? persistedUpload?.detectionReasons ?? [];
   const progress = state?.progress ?? (persistedUpload ? 100 : 0);
   const extractedEntries = getExtractedFieldEntries(state?.extractedFields);
-
+  const isLocked = disabled && !isUploading;
+  const isInactive = disabled || isUploading;
   const validationReasons = reasons.filter(
     (r) =>
       !r.startsWith('Visual features:') &&
@@ -87,8 +97,17 @@ export const UploadCard: React.FC<UploadCardProps> = ({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: 'easeOut' }}
-      className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_35px_80px_rgba(15,23,42,0.08)]"
+      className={cn(
+        'relative rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_35px_80px_rgba(15,23,42,0.08)]',
+        isLocked && 'opacity-70',
+      )}
     >
+      {isLocked && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[2rem] bg-slate-950/75 px-6 text-center text-sm font-semibold text-white">
+          Finish the active upload before selecting another document.
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-slate-950 text-white shadow-lg">
@@ -105,32 +124,40 @@ export const UploadCard: React.FC<UploadCardProps> = ({
       <label
         onDragOver={(event) => {
           event.preventDefault();
-          onDragChange(true);
+          if (!isInactive) onDragChange(true);
         }}
-        onDragLeave={() => onDragChange(false)}
+        onDragLeave={() => {
+          if (!isInactive) onDragChange(false);
+        }}
         onDrop={(event) => {
           event.preventDefault();
-          onDragChange(false);
-          onFileSelect(event.dataTransfer.files?.[0] ?? null);
+          if (!isInactive) {
+            onDragChange(false);
+            onFileSelect(event.dataTransfer.files?.[0] ?? null);
+          }
         }}
         className={cn(
           'mt-6 flex cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed p-7 text-center transition duration-300',
           isDragging ? 'border-blue-400 bg-blue-50/80' : 'border-slate-300 bg-slate-50/90 hover:border-blue-300 hover:bg-blue-50/70',
-          isUploading && 'pointer-events-none opacity-80',
+          isInactive && 'pointer-events-none opacity-80',
         )}
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm">
           {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <CloudUpload className="h-6 w-6" />}
         </div>
         <p className="mt-4 text-sm font-black text-slate-950">
-          {isUploading ? 'Uploading and verifying...' : 'Drop file here or click to upload'}
+          {isUploading
+            ? 'Uploading and verifying...'
+            : isLocked
+            ? 'Locked while another upload completes'
+            : 'Drop file here or click to upload'}
         </p>
         <p className="mt-1 text-xs font-medium text-slate-500">Vision AI classification and OCR verification run automatically.</p>
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/png,image/jpeg"
           className="hidden"
-          disabled={isUploading}
+          disabled={isInactive}
           onChange={(event) => {
             onFileSelect(event.target.files?.[0] ?? null);
             event.currentTarget.value = '';
@@ -157,6 +184,11 @@ export const UploadCard: React.FC<UploadCardProps> = ({
 
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
             <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">{progress}% complete</span>
+            <span className="rounded-full bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm">{getUploadStage(progress)}</span>
           </div>
 
           {state?.message && (

@@ -152,7 +152,7 @@ export default function ServiceDetailPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [uploadStateByDocumentId, setUploadStateByDocumentId] = useState<Record<string, UploadState>>({});
-  const [toastMessage, setToastMessage] = useState('');
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [error, setError] = useState('');
 
   const [application, setApplication] = useState<Application | null>(null);
@@ -269,10 +269,10 @@ export default function ServiceDetailPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!toastMessage) return;
-    const timer = window.setTimeout(() => setToastMessage(''), 3200);
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(timer);
-  }, [toastMessage]);
+  }, [toast]);
 
   const uploadByDocumentId = useMemo(
     () =>
@@ -299,21 +299,21 @@ export default function ServiceDetailPage() {
     if (!user) {
       const text = 'Please sign in before uploading documents.';
       setUploadStateByDocumentId((prev) => ({ ...prev, [documentId]: { ...prev[documentId], tone: 'error', message: text, progress: 0 } }));
-      setToastMessage(text);
+      setToast({ type: 'error', text });
       return;
     }
 
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       const text = 'Only JPG, PNG, and PDF files are supported.';
       setUploadStateByDocumentId((prev) => ({ ...prev, [documentId]: { fileName: file.name, tone: 'error', message: text, progress: 0 } }));
-      setToastMessage(text);
+      setToast({ type: 'error', text });
       return;
     }
 
     if (file.size >= MAX_UPLOAD_SIZE) {
       const text = 'File size must be less than 5MB.';
       setUploadStateByDocumentId((prev) => ({ ...prev, [documentId]: { fileName: file.name, tone: 'error', message: text, progress: 0 } }));
-      setToastMessage(text);
+      setToast({ type: 'error', text });
       return;
     }
 
@@ -373,6 +373,7 @@ export default function ServiceDetailPage() {
           message: getMessageForStatus(payload.status, payload.confidence),
         },
       }));
+      setToast({ type: payload.status === 'VERIFIED' ? 'success' : 'error', text: getMessageForStatus(payload.status, payload.confidence) });
       await loadUserUploadState();
     } catch (err: any) {
       const text = err?.response?.data?.message || 'Upload failed. Please try again.';
@@ -380,7 +381,7 @@ export default function ServiceDetailPage() {
         ...prev,
         [documentId]: { ...prev[documentId], progress: 0, tone: 'error', message: text },
       }));
-      setToastMessage(text);
+      setToast({ type: 'error', text });
     } finally {
       setUploadingId(null);
       setDraggingId(null);
@@ -389,12 +390,20 @@ export default function ServiceDetailPage() {
 
   return (
     <PageLayout>
-      {toastMessage && (
-        <div className="fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-700 shadow-2xl">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {toastMessage}
-          <button type="button" onClick={() => setToastMessage('')} aria-label="Dismiss alert">
-            <X className="h-4 w-4 text-slate-400" />
+      {toast && (
+        <div className={`fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-2xl transition-all ${
+            toast.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}>
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+          )}
+          {toast.text}
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss alert" className="text-slate-400 hover:text-slate-600">
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -455,25 +464,42 @@ export default function ServiceDetailPage() {
                   <p className="mt-2 text-sm text-slate-500">This service does not have a document checklist yet.</p>
                 </div>
               ) : (
-                documents.map((document, index) => {
-                  const persistedUpload = uploadByDocumentId[document._id];
-                  const state = uploadStateByDocumentId[document._id];
-                  const isUploading = uploadingId === document._id;
-                  const isDragging = draggingId === document._id;
+                <>
+                  {uploadingId && (
+                    <div className="rounded-[2rem] border border-blue-100 bg-blue-50 p-5 text-sm font-semibold text-blue-700 shadow-sm">
+                      Upload in progress for{' '}
+                      <span className="font-black text-slate-950">
+                        {documents.find((doc) => doc._id === uploadingId)?.name || 'your document'}
+                      </span>
+                      . Other cards are temporarily locked until this verification completes.
+                    </div>
+                  )}
+                  {documents.map((document) => {
+                    const persistedUpload = uploadByDocumentId[document._id];
+                    const state = uploadStateByDocumentId[document._id];
+                    const isActiveUpload = uploadingId === document._id;
+                    const isDragging = draggingId === document._id;
+                    const isDisabled = !!uploadingId && uploadingId !== document._id;
 
-                  return (
-                    <UploadCard
-                      key={document._id}
-                      document={document}
-                      persistedUpload={persistedUpload}
-                      state={state}
-                      isUploading={isUploading}
-                      isDragging={isDragging}
-                      onFileSelect={(file) => void handleFileUpload(document._id, file)}
-                      onDragChange={(dragging) => setDraggingId(dragging ? document._id : null)}
-                    />
-                  );
-                })
+                    return (
+                      <UploadCard
+                        key={document._id}
+                        document={document}
+                        persistedUpload={persistedUpload}
+                        state={state}
+                        isUploading={isActiveUpload}
+                        isDragging={isDragging}
+                        disabled={isDisabled}
+                        onFileSelect={(file) => {
+                          if (!isDisabled) void handleFileUpload(document._id, file);
+                        }}
+                        onDragChange={(dragging) => {
+                          if (!isDisabled) setDraggingId(dragging ? document._id : null);
+                        }}
+                      />
+                    );
+                  })}
+                </>
               )}
             </div>
           </section>

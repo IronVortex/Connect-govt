@@ -29,6 +29,7 @@ async function bootstrap() {
     normalizeOrigin('http://localhost:3000'),
     normalizeOrigin('http://localhost:3001'),
     normalizeOrigin('http://localhost:3333'),
+    normalizeOrigin('http://localhost:4200'),
     normalizeOrigin('https://connect-govt-vert.vercel.app'),
     normalizeOrigin('https://connect-govt-project.vercel.app'),
     ...configuredFrontendUrls,
