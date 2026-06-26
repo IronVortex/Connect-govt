@@ -33,55 +33,51 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Overlay Backdrop for Mobile */}
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-slate-900/20 backdrop-blur-xs z-40 md:hidden opacity-100 transition-opacity duration-300"
           onClick={closeMobile}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar Container */}
       <aside 
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 bg-white border-r border-slate-100 flex flex-col h-screen transition-all duration-300 ease-in-out",
-          // Mobile Drawer mode
-          "w-[280px] -translate-x-full md:translate-x-0",
+          "fixed top-0 bottom-0 left-0 z-50 bg-white border-r border-slate-200/80 flex flex-col h-screen transition-all duration-300 ease-in-out select-none",
+          "w-[260px] -translate-x-full md:translate-x-0",
           isMobileOpen && "translate-x-0",
-          // Desktop/Tablet collapse mode
-          isCollapsed ? "md:w-20" : "md:w-[280px]"
+          isCollapsed ? "md:w-16" : "md:w-[260px]"
         )}
         aria-label="Main Navigation"
       >
-        {/* Branding & Logo */}
         <div className={cn(
-          "py-6 flex items-center transition-all duration-300 ease-in-out relative",
-          isCollapsed ? "justify-center px-2" : "px-6 gap-3"
+          "h-16 flex items-center border-b border-slate-50 transition-all duration-300 relative",
+          isCollapsed ? "justify-center px-2" : "px-5 gap-2.5"
         )}>
-          <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
-            <img src="/logo.svg" alt="Connect Logo" className="w-full h-full" />
+          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md bg-blue-600 text-white shadow-xs">
+            <img src="/logo.svg" alt="" className="w-4 h-4 object-contain invert" onError={(e) => e.currentTarget.remove()} />
           </div>
+          
           {!isCollapsed && (
-            <div className="transition-opacity duration-300 ease-in-out truncate pr-6">
-              <h1 className="text-xl font-bold text-[#0F172A] leading-tight">Connect</h1>
-              <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">Gateway to Govt Services</p>
+            <div className="transition-opacity duration-200 truncate pr-4">
+              <h1 className="text-sm font-semibold text-slate-900 tracking-tight leading-tight">ConnectGov</h1>
+              <p className="text-[10px] text-slate-400 font-medium tracking-normal mt-0.5">Secure Gateway</p>
             </div>
           )}
 
-          {/* Close button for Mobile drawer */}
+         
           <button 
             onClick={closeMobile}
-            className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
+            className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-900 rounded-md hover:bg-slate-50 transition-colors"
             aria-label="Close menu"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation Items */}
+   
         <nav className={cn(
-          "flex-1 mt-2 space-y-1 px-4",
+          "flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-none px-3",
           isCollapsed && "px-2"
         )}>
           {navItems.map((item) => (
@@ -94,16 +90,15 @@ export const Sidebar: React.FC = () => {
           ))}
         </nav>
 
-        {/* Trust Badge at Footer */}
         {!isCollapsed && (
-          <div className="p-6 transition-opacity duration-300 ease-in-out">
-            <div className="bg-[#FAFBFF] rounded-2xl p-5 border border-[#E9EFFF]">
-              <div className="flex items-center gap-2 mb-2 text-[#10B981]">
-                <ShieldCheck className="w-5 h-5 fill-current flex-shrink-0" />
-                <span className="text-[10px] font-bold uppercase tracking-wide">Simple. Secure. Verified.</span>
+          <div className="p-4 border-t border-slate-100 bg-slate-50/50 transition-all duration-200">
+            <div className="rounded-lg border border-slate-200/60 bg-white p-3 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-emerald-600 mb-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Verified Portal</span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                Connect makes it easy to access government services and get your documents verified quickly.
+              <p className="text-[11px] leading-normal text-slate-500 font-medium">
+                End-to-end identity and verification processing security active.
               </p>
             </div>
           </div>

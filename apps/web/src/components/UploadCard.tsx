@@ -1,7 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { AlertCircle, CheckCircle2, CloudUpload, FileText, Loader2, XCircle } from 'lucide-react';
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AlertCircle, CheckCircle2, CloudUpload, FileText, Loader2, XCircle, Lock } from 'lucide-react';
 import { RequiredDocument, UploadedDocument } from '@connect/types';
 import { Badge } from './Badge';
 import { cn } from '../lib/utils';
@@ -83,8 +84,11 @@ export const UploadCard: React.FC<UploadCardProps> = ({
   const reasons = state?.reasons ?? persistedUpload?.detectionReasons ?? [];
   const progress = state?.progress ?? (persistedUpload ? 100 : 0);
   const extractedEntries = getExtractedFieldEntries(state?.extractedFields);
+  
+  // A card is locked if general interface uploads are disabled, unless it's the specific active card currently uploading.
   const isLocked = disabled && !isUploading;
   const isInactive = disabled || isUploading;
+
   const validationReasons = reasons.filter(
     (r) =>
       !r.startsWith('Visual features:') &&
@@ -94,33 +98,54 @@ export const UploadCard: React.FC<UploadCardProps> = ({
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: 'easeOut' }}
+      transition={{ duration: 0.25, ease: 'easeInOut' }}
       className={cn(
-        'relative rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_35px_80px_rgba(15,23,42,0.08)]',
-        isLocked && 'opacity-70',
+        'relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 dynamic-blur-container',
+        isLocked ? 'blur-[2px] pointer-events-none select-none opacity-40 mix-blend-overlay' : 'hover:border-slate-300 hover:shadow-md/5',
       )}
     >
-      {isLocked && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[2rem] bg-slate-950/75 px-6 text-center text-sm font-semibold text-white">
-          Finish the active upload before selecting another document.
-        </div>
-      )}
+      {/* Premium Lock Overlay for Blurring Inactive Options */}
+      <AnimatePresence>
+        {isLocked && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-xl bg-slate-50/20 backdrop-blur-[3px] p-6 text-center transition-all duration-300"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm border border-slate-200/80 text-slate-500 mb-2">
+              <Lock className="h-4 w-4" />
+            </div>
+            <p className="text-xs font-semibold text-slate-700 max-w-[240px] tracking-tight">
+              Upload disabled while another document is verifying
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      {/* Main Card Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-slate-950 text-white shadow-lg">
-            <span className="text-base font-black">{document.name?.charAt(0) ?? 'D'}</span>
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white font-semibold text-sm shadow-sm">
+            {document.name?.charAt(0) ?? 'D'}
           </div>
-          <div>
-            <h3 className="text-lg font-black tracking-tight text-slate-950">{document.name || 'Required document'}</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-500">{document.description || 'Upload a clear scan or photo for review.'}</p>
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-semibold tracking-tight text-slate-900">
+              {document.name || 'Required document'}
+            </h3>
+            <p className="text-xs leading-normal text-slate-500 max-w-xl">
+              {document.description || 'Upload a clear scan or photo for review.'}
+            </p>
           </div>
         </div>
-        <Badge status={status || 'PENDING'} />
+        <div className="shrink-0">
+          <Badge status={status || 'PENDING'} />
+        </div>
       </div>
 
+      {/* Upload Drop Zone Area */}
       <label
         onDragOver={(event) => {
           event.preventDefault();
@@ -137,22 +162,26 @@ export const UploadCard: React.FC<UploadCardProps> = ({
           }
         }}
         className={cn(
-          'mt-6 flex cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border border-dashed p-7 text-center transition duration-300',
-          isDragging ? 'border-blue-400 bg-blue-50/80' : 'border-slate-300 bg-slate-50/90 hover:border-blue-300 hover:bg-blue-50/70',
-          isInactive && 'pointer-events-none opacity-80',
+          'mt-5 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2',
+          isDragging 
+            ? 'border-blue-500 bg-blue-50/50' 
+            : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50',
+          isInactive && 'pointer-events-none opacity-90',
         )}
       >
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm">
-          {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <CloudUpload className="h-6 w-6" />}
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm border border-slate-100">
+          {isUploading ? <Loader2 className="h-5 w-5 animate-spin text-blue-600" /> : <CloudUpload className="h-5 w-5 text-slate-500" />}
         </div>
-        <p className="mt-4 text-sm font-black text-slate-950">
+        <p className="mt-3 text-xs font-semibold text-slate-900">
           {isUploading
             ? 'Uploading and verifying...'
             : isLocked
-            ? 'Locked while another upload completes'
+            ? 'Locked'
             : 'Drop file here or click to upload'}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-500">Vision AI classification and OCR verification run automatically.</p>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Vision AI classification and OCR verification run automatically.
+        </p>
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/png,image/jpeg"
@@ -165,60 +194,74 @@ export const UploadCard: React.FC<UploadCardProps> = ({
         />
       </label>
 
+      {/* Active Scan Results & Progress Details */}
       {(state?.fileName || persistedUpload) && (
-        <div className="mt-5 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
-                <FileText className="h-5 w-5" />
+        <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50/50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-black text-slate-950">{state?.fileName || persistedUpload?.filename}</p>
-                <p className="text-xs text-slate-500">
-                  {persistedUpload ? `${(persistedUpload.size / 1024 / 1024).toFixed(2)} MB` : 'Preparing secure upload'}
+                <p className="truncate text-xs font-semibold text-slate-900">
+                  {state?.fileName || persistedUpload?.filename}
+                </p>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {persistedUpload ? `${(persistedUpload.size / 1024 / 1024).toFixed(2)} MB` : 'Secure upload parsing'}
                 </p>
               </div>
             </div>
-            {status && <Badge status={status} className="uppercase" />}
+            {status && <Badge status={status} className="sm:self-center" />}
           </div>
 
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${progress}%` }} />
+          {/* Clean Progress Bar Container */}
+          <div className="mt-3.5 h-1.5 overflow-hidden rounded-full bg-slate-200/80">
+            <div 
+              className="h-full rounded-full bg-blue-600 transition-all duration-300 ease-out" 
+              style={{ width: `${progress}%` }} 
+            />
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">{progress}% complete</span>
-            <span className="rounded-full bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm">{getUploadStage(progress)}</span>
+          <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-medium">
+            <span className="text-slate-500 bg-white border border-slate-100 px-2 py-0.5 rounded-md shadow-2xs">
+              {progress}% complete
+            </span>
+            <span className="text-blue-700 bg-blue-50/60 border border-blue-100/40 px-2 py-0.5 rounded-md font-semibold">
+              {getUploadStage(progress)}
+            </span>
           </div>
 
           {state?.message && (
-            <p className={cn('mt-3 flex items-center gap-2 text-xs font-semibold', state.tone === 'error' ? 'text-red-600' : 'text-emerald-700')}>
-              {state.tone === 'error' ? <AlertCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            <p className={cn('mt-3 flex items-center gap-1.5 text-[11px] font-medium', state.tone === 'error' ? 'text-red-600' : 'text-emerald-700')}>
+              {state.tone === 'error' ? <AlertCircle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
               {state.message}
             </p>
           )}
 
+          {/* Extracted Analytics Block */}
           {detectedType && (
-            <div className="mt-4 space-y-3 rounded-xl bg-white p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 space-y-3 rounded-lg border border-slate-100 bg-white p-3.5 shadow-2xs">
+              <div className="grid gap-3 grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Document Type</p>
-                  <p className="mt-0.5 text-sm font-black text-slate-900">{detectedType}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Document Type</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-900 truncate">{detectedType}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Confidence</p>
-                  <p className="mt-0.5 text-sm font-black text-slate-900">{confidence !== undefined ? `${confidence}%` : '—'}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Confidence</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                    {confidence !== undefined ? `${confidence}%` : '—'}
+                  </p>
                 </div>
               </div>
 
               {extractedEntries.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Extracted Information</p>
-                  <ul className="mt-2 space-y-1">
+                <div className="border-t border-slate-50 pt-2.5">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1.5">Extracted Information</p>
+                  <ul className="space-y-1">
                     {extractedEntries.map(([label, value]) => (
                       <li key={label} className="flex gap-2 text-xs text-slate-700">
-                        <span className="font-semibold text-slate-500">{label}:</span>
-                        <span className="truncate">{value}</span>
+                        <span className="font-medium text-slate-400 shrink-0">{label}:</span>
+                        <span className="truncate font-medium text-slate-800">{value}</span>
                       </li>
                     ))}
                   </ul>
@@ -226,38 +269,25 @@ export const UploadCard: React.FC<UploadCardProps> = ({
               )}
 
               {validationReasons.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Validation</p>
-                  <ul className="mt-2 space-y-1.5">
+                <div className="border-t border-slate-50 pt-2.5">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1.5">System Verification Checks</p>
+                  <ul className="space-y-1">
                     {validationReasons.map((reason, idx) => {
                       const isPass = /detected|verified|passed|present/i.test(reason);
                       return (
-                        <li key={idx} className="flex items-start gap-2 text-xs text-slate-600">
+                        <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600 leading-normal">
                           {isPass ? (
-                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
                           ) : (
-                            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                            <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
                           )}
-                          {reason}
+                          <span className="font-medium">{reason}</span>
                         </li>
                       );
                     })}
                   </ul>
                 </div>
               )}
-
-              {status && (
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p>
-                  <Badge status={status} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {persistedUpload && (
-            <div className="mt-4 text-xs text-slate-500">
-              <span className="font-bold">Record</span> saved to your upload history.
             </div>
           )}
         </div>

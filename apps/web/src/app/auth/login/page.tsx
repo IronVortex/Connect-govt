@@ -30,46 +30,55 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-10 shadow-[0_40px_120px_rgba(8,15,42,0.38)] backdrop-blur-xl">
-          <div className="inline-flex items-center gap-3 rounded-full border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-200">
-            <ShieldCheck className="h-4 w-4 text-cyan-300" />
-            Government-grade identity and document verification.
+    <div className="min-h-screen bg-slate-50/50 flex flex-col justify-center items-center px-4 py-12 antialiased selection:bg-blue-500/10">
+      <div className="w-full max-w-5xl grid gap-8 lg:grid-cols-12 lg:items-center">
+        
+        <section className="lg:col-span-7 space-y-6 p-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/60 px-3 py-1 text-xs font-semibold text-blue-700 w-fit">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+            <span>Government-grade identity & document security</span>
           </div>
-          <div className="mt-10 space-y-6">
-            <div>
-              <p className="text-sm uppercase tracking-[0.32em] text-cyan-300">Connect</p>
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-                Secure access for every citizen workflow.
-              </h1>
-            </div>
-            <div className="grid gap-4 text-slate-300 sm:grid-cols-2">
-              <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/80 px-5 py-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Trusted</p>
-                <p className="mt-2 text-sm leading-6">Encrypted session handling and role-aware service access.</p>
-              </div>
-              <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/80 px-5 py-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Fast</p>
-                <p className="mt-2 text-sm leading-6">Jump straight into uploads, verification, and tracking.</p>
-              </div>
-            </div>
-            <p className="max-w-xl text-sm leading-7 text-slate-300">
-              Sign in to manage your government services, keep trusted documents ready, and see every verification step clearly.
+          
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ConnectGov Platform</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl max-w-md leading-tight">
+              Secure digital access for every citizen workflow.
+            </h1>
+            <p className="text-xs font-medium leading-relaxed text-slate-500 max-w-lg">
+              Sign in to manage your government services portal, keep your verified identity records ready, and audit every automated compliance step transparently.
             </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 pt-2 max-w-xl">
+            <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-2xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Encrypted Security</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 leading-normal">
+                Isolated sessions backed by granular role-aware service controls.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-2xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Automated OCR</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 leading-normal">
+                Instantly parse uploads, run validations, and view instant status logs.
+              </p>
+            </div>
           </div>
         </section>
 
-        <div className="rounded-[2rem] bg-white p-10 shadow-[0_40px_120px_rgba(15,23,42,0.18)] text-slate-950">
-          <div className="mb-8 space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Sign in</p>
-            <h2 className="text-3xl font-black tracking-tight">Welcome back</h2>
-            <p className="text-sm text-slate-500">Enter your email and secure password to continue.</p>
+        <div className="lg:col-span-5 rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+          <div className="mb-6 space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Portal Authentication</p>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Welcome back</h2>
+            <p className="text-xs font-medium text-slate-400">Enter your credentials to access your console.</p>
           </div>
 
-          {error && <Alert variant="error" title="Unable to sign in">{error}</Alert>}
+          {error && (
+            <Alert variant="error" title="Unable to sign in" className="mb-5">
+              {error}
+            </Alert>
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               id="login-email"
               label="Email address"
@@ -77,22 +86,24 @@ export default function LoginPage() {
               value={email}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              icon={<AtSign className="h-4 w-4 text-slate-400" />}
+              icon={<AtSign className="h-4 w-4" />}
               required
             />
+            
             <Input
               id="login-password"
               label="Password"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-              placeholder="Enter your password"
-              icon={<Lock className="h-4 w-4 text-slate-400" />}
+              placeholder="Enter your account password"
+              icon={<Lock className="h-4 w-4" />}
               rightElement={
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="text-slate-400 transition hover:text-slate-700"
+                  className="text-slate-400 transition-colors duration-150 hover:text-slate-600 focus:outline-none"
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -100,18 +111,19 @@ export default function LoginPage() {
               required
             />
 
-            <Button type="submit" fullWidth loading={loading}>
-              {loading ? 'Signing in...' : 'Sign in securely'}
+            <Button type="submit" fullWidth loading={loading} className="mt-2">
+              Sign in securely
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            New to Connect?{' '}
-            <Link href="/auth/register" className="font-semibold text-slate-950 hover:text-blue-700">
+          <p className="mt-5 text-center text-xs font-medium text-slate-400">
+            New to ConnectGov?{' '}
+            <Link href="/auth/register" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors duration-150">
               Create an account
             </Link>
           </p>
         </div>
+
       </div>
     </div>
   );

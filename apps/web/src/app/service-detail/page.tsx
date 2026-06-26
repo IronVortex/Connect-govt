@@ -1,20 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PageLayout } from '../../components/layout/PageLayout';
+import Link from 'next/link';
 import { 
   ChevronRight, 
   Info, 
   Upload, 
   CheckCircle2, 
-  Clock, 
-  CreditCard, 
   FileText,
   AlertCircle,
   Eye,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  HelpCircle,
+  PhoneCall,
+  MessageSquare
 } from 'lucide-react';
-import Link from 'next/link';
+import { PageLayout } from '../../components/layout/PageLayout';
 import { cn } from '../../lib/utils';
 
 const steps = [
@@ -32,178 +34,235 @@ const requiredDocs = [
 ];
 
 export default function ServiceDetailPage() {
+  const [documents, setDocuments] = useState(requiredDocs);
+
+  // Compute stats dynamically for real-time progress presentation
+  const totalDocs = documents.length;
+  const verifiedDocs = documents.filter(d => d.status === 'verified').length;
+  const completionPercentage = totalDocs ? Math.round((verifiedDocs / totalDocs) * 100) : 0;
+
   return (
     <PageLayout>
-          {/* Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-[13px] text-slate-400 mb-8 font-medium">
-            <Link href="/dashboard" className="hover:text-[#1D61FF] transition-colors">Dashboard</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <Link href="/departments/transport" className="hover:text-[#1D61FF] transition-colors">RTO</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-slate-600">New Car Registration</span>
-          </nav>
+      <div className="max-w-7xl mx-auto px-4 py-2 space-y-6">
+        
+        {/* Breadcrumbs Navigation */}
+        <nav className="flex items-center gap-2 text-xs text-slate-400 font-semibold tracking-wide uppercase">
+          <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Dashboard</Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <Link href="/departments/transport" className="hover:text-blue-600 transition-colors">RTO</Link>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <span className="text-slate-600 font-bold">New Car Registration</span>
+        </nav>
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-5">
-              <div className="w-[72px] h-[72px] bg-white border border-slate-100 rounded-full flex items-center justify-center overflow-hidden shadow-sm shadow-slate-200/50">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem" className="w-10 h-10 opacity-80" />
-              </div>
-              <div>
-                <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">New Car Registration</h2>
-                <p className="text-slate-500 text-[15px] font-medium mt-0.5">Transport Department (RTO)</p>
-              </div>
-            </div>
-            <button className="flex items-center gap-2.5 px-5 py-2.5 bg-white border border-[#1D61FF] text-[#1D61FF] rounded-xl text-[14px] font-bold hover:bg-[#F0F5FF] transition-all shadow-sm shadow-[#1D61FF]/5 group">
-              <Info className="w-4.5 h-4.5" />
-              About this service
-            </button>
-          </div>
-
-          {/* Stepper */}
-          <div className="bg-white border border-slate-100 rounded-[24px] p-8 mb-10 shadow-sm shadow-slate-200/50">
-            <div className="flex items-center justify-between relative px-12">
-              <div className="absolute top-[18px] left-[100px] right-[100px] h-[3px] bg-slate-100 -z-0">
-                <div className="h-full bg-[#1D61FF] w-[50%] rounded-full transition-all duration-700 ease-out"></div>
-              </div>
-              {steps.map((step) => (
-                <div key={step.id} className="flex flex-col items-center gap-3 relative z-10">
-                  <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold transition-all duration-500",
-                    step.status === 'completed' ? "bg-[#1D61FF] text-white shadow-lg shadow-[#1D61FF]/20" : 
-                    step.status === 'active' ? "bg-white border-[3px] border-[#1D61FF] text-[#1D61FF] shadow-lg shadow-[#1D61FF]/10 ring-8 ring-[#1D61FF]/5" : 
-                    "bg-white border-2 border-slate-100 text-slate-300"
-                  )}>
-                    {step.status === 'completed' ? <CheckCircle2 className="w-6 h-6 stroke-[2.5px]" /> : step.id}
-                  </div>
-                  <span className={cn(
-                    "text-[13px] font-bold whitespace-nowrap tracking-tight transition-colors duration-300",
-                    step.status === 'active' || step.status === 'completed' ? 'text-slate-800' : 'text-slate-400'
-                  )}>{step.label}</span>
+        {/* Master Row Grid Definition */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          
+          {/* Main Action Workspace Column Segment */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Header Identity Board */}
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-50/40 via-transparent to-transparent rounded-full pointer-events-none" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center p-2.5 shrink-0 shadow-xs">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="National Emblem of India" className="w-full h-full object-contain opacity-90" />
                 </div>
-              ))}
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">New Car Registration</h1>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Transport Department (RTO)</p>
+                </div>
+              </div>
+              <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-blue-100 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50/50 hover:border-blue-200 transition-all shadow-2xs shrink-0 self-start sm:self-auto">
+                <Info className="w-4 h-4" />
+                About service
+              </button>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-10 items-start">
-            {/* Main Content */}
-            <div className="space-y-8">
-              <div className="bg-white border border-slate-100 rounded-[24px] p-10 shadow-sm shadow-slate-200/50">
-                <h3 className="text-[22px] font-extrabold text-[#0F172A] mb-1 tracking-tight">Documents Required</h3>
-                <p className="text-[14px] text-slate-400 mb-10 font-medium">Please upload the following documents to proceed</p>
+            {/* Premium Stepper Indicator Track */}
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+              <div className="flex items-center justify-between relative px-4 sm:px-12">
+                <div className="absolute top-[18px] left-[40px] sm:left-[100px] right-[40px] sm:right-[100px] h-[3px] bg-slate-100 -z-0">
+                  <div className="h-full bg-blue-600 w-1/2 rounded-full transition-all duration-700 ease-out" />
+                </div>
+                {steps.map((step) => (
+                  <div key={step.id} className="flex flex-col items-center gap-2.5 relative z-10">
+                    <div className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 shadow-sm",
+                      step.status === 'completed' ? "bg-blue-600 text-white" : 
+                      step.status === 'active' ? "bg-white border-2 border-blue-600 text-blue-600 ring-4 ring-blue-50" : 
+                      "bg-white border-2 border-slate-100 text-slate-300"
+                    )}>
+                      {step.status === 'completed' ? <CheckCircle2 className="w-5 h-5 text-white" /> : step.id}
+                    </div>
+                    <span className={cn(
+                      "text-[11px] font-bold tracking-tight",
+                      step.status === 'active' || step.status === 'completed' ? 'text-slate-800' : 'text-slate-400'
+                    )}>{step.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                <div className="space-y-5">
-                  {requiredDocs.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-[20px] hover:border-[#1D61FF]/30 hover:shadow-md hover:shadow-slate-200/40 transition-all group">
-                      <div className="flex items-center gap-6">
-                        <div className="w-[52px] h-[52px] bg-[#F0F5FF] rounded-xl flex items-center justify-center text-[#1D61FF] shadow-sm shadow-[#1D61FF]/5">
-                          <FileText className="w-7 h-7 stroke-[2.5px]" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-[16px] font-bold text-[#0F172A] tracking-tight">{doc.name}</h4>
-                            {doc.isRequired && (
-                              <span className="px-2 py-1 bg-[#F0FDF4] text-[#10B981] text-[10px] font-extrabold rounded-md uppercase tracking-wider">Required</span>
-                            )}
-                          </div>
-                          <p className="text-[13px] text-slate-400 mt-1 font-medium">{doc.description}</p>
-                        </div>
+            {/* Document Checklist Area */}
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">Required Documents</h3>
+                <p className="text-xs text-slate-400 font-semibold mt-0.5">Compile and audit documentation metrics before submittal</p>
+              </div>
+
+              <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/30">
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4.5 sm:p-5 gap-4 bg-white hover:bg-slate-50/40 transition-colors group">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 bg-blue-50 border border-blue-100/40 rounded-xl flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
+                        <FileText className="w-5 h-5" />
                       </div>
-                      
-                      <div className="flex items-center gap-4">
-                        {doc.status === 'verified' ? (
-                          <>
-                            <div className="flex items-center gap-2 text-[#10B981] text-[14px] font-bold">
-                              <CheckCircle2 className="w-5 h-5 fill-current" />
-                              Verified
-                            </div>
-                            <button className="px-7 py-2.5 bg-white border border-slate-100 text-slate-600 text-[14px] font-bold rounded-xl hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm">
-                              View
-                            </button>
-                          </>
-                        ) : (
-                          <button className="flex items-center gap-2.5 px-7 py-2.5 border border-[#1D61FF]/20 text-[#1D61FF] text-[14px] font-bold rounded-xl hover:bg-[#1D61FF] hover:text-white hover:border-[#1D61FF] transition-all duration-300 shadow-sm shadow-[#1D61FF]/5">
-                            <Upload className="w-4.5 h-4.5" />
-                            Upload
-                          </button>
-                        )}
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-bold text-slate-900 tracking-tight">{doc.name}</h4>
+                          {doc.isRequired && (
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-extrabold rounded-md uppercase tracking-wider border border-emerald-100/50">Required</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium leading-normal">{doc.description}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                {/* Verification Notice */}
-                <div className="mt-10 p-6 bg-[#F0FDF9] border border-[#DCFCE7] rounded-[20px] flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#10B981] rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-[#10B981]/20">
-                    <CheckCircle2 className="w-6 h-6 stroke-[3px]" />
+                    
+                    <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                      {doc.status === 'verified' ? (
+                        <>
+                          <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50/50 border border-emerald-100 px-3 py-1.5 rounded-xl shadow-2xs">
+                            <CheckCircle2 className="w-4 h-4 fill-emerald-600 text-white" />
+                            Verified
+                          </div>
+                          <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition-all">
+                            View
+                          </button>
+                        </>
+                      ) : (
+                        <button className="flex items-center justify-center gap-2 px-5 py-2 border border-blue-200 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-2xs group/btn">
+                          <Upload className="w-3.5 h-3.5 transition-transform group-hover/btn:-translate-y-0.5" />
+                          Upload
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-[15px] font-bold text-[#166534]">Basic Verification</h4>
-                    <p className="text-[13px] text-[#166534]/70 mt-1 leading-relaxed font-medium">
-                      We verify document type, format and basic authenticity. Final verification will be done by the department.
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="flex items-center justify-between pt-4">
-                <button className="px-8 py-3.5 border border-slate-200 text-slate-600 text-[15px] font-bold rounded-2xl hover:bg-white hover:border-slate-300 transition-all shadow-sm active:scale-95">
-                  ← Back
-                </button>
-                <button className="px-10 py-3.5 bg-[#1D61FF] text-white text-[15px] font-bold rounded-2xl hover:bg-[#1553DB] transition-all shadow-xl shadow-[#1D61FF]/30 flex items-center gap-3 active:scale-[0.98]">
-                  Start Verification
-                  <ArrowRight className="w-5 h-5 stroke-[2.5px]" />
-                </button>
+              {/* Dynamic Notification Context Alert Banner */}
+              <div className="p-4 bg-emerald-50/50 border border-emerald-100/80 rounded-2xl flex items-start gap-3.5">
+                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white shrink-0 shadow-xs shadow-emerald-200">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-bold text-emerald-900">Pipeline Pipeline Encryption Active</h4>
+                  <p className="text-[11px] text-emerald-700/80 leading-relaxed font-semibold">
+                    Our AI validation layer confirms matching syntax variables on upload. Final system endorsement occurs at the regional desk level.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Help & Tips Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Help Card */}
-              <div className="bg-[#111827] rounded-[24px] p-8 text-white shadow-xl shadow-slate-900/10">
-                <h4 className="text-[18px] font-bold mb-6 tracking-tight">Need Help?</h4>
-                <div className="space-y-4">
-                  <button className="w-full flex items-center justify-between p-4 bg-white/10 rounded-[18px] text-[13px] font-bold hover:bg-white/20 transition-all group backdrop-blur-sm">
-                    View Process Guide
-                    <Eye className="w-5 h-5 text-white/40 group-hover:text-white" />
-                  </button>
-                  <button className="w-full flex items-center justify-between p-4 bg-white/10 rounded-[18px] text-[13px] font-bold hover:bg-white/20 transition-all group backdrop-blur-sm">
-                    Chat with Support
-                    <AlertCircle className="w-5 h-5 text-white/40 group-hover:text-white" />
-                  </button>
-                </div>
-                <div className="mt-8 flex items-center gap-3 pt-6 border-t border-white/10">
-                  <div className="w-10 h-10 bg-[#1D61FF] rounded-full flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest leading-none">Call Us</p>
-                    <p className="text-[15px] font-bold text-white mt-1 leading-none">1800-123-4567</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tips Card */}
-              <div className="bg-white border border-slate-100 rounded-[24px] p-8 shadow-sm shadow-slate-200/50">
-                <h4 className="text-[18px] font-bold text-[#0F172A] mb-6 tracking-tight">Quick Tips</h4>
-                <ul className="space-y-4">
-                  {[
-                    "Ensure documents are clear and readable",
-                    "File size should be less than 5MB",
-                    "Allowed formats: JPG, PNG, PDF",
-                    "Original documents preferred over photocopies"
-                  ].map((tip, i) => (
-                    <li key={i} className="flex items-start gap-3 text-[14px] text-slate-500 font-medium">
-                      <div className="w-5 h-5 bg-[#F0FDF4] text-[#10B981] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 stroke-[3px]" />
-                      </div>
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {/* Bottom Actions Row Block */}
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <button className="px-5 py-3 border border-slate-200 text-slate-500 text-xs font-bold rounded-xl hover:bg-white hover:border-slate-300 transition-all shadow-2xs active:scale-98">
+                ← Return to Desk
+              </button>
+              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-blue-200 flex items-center gap-2 active:scale-98 group">
+                Begin Verification Process
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
             </div>
           </div>
+
+          {/* Sticky Sidebar Operations Control Column Panel Container */}
+          <div className="space-y-6 lg:sticky lg:top-6">
+            
+            {/* Completion Matrix Card */}
+            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Workspace Matrix</p>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Compilation Progress</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2.5 bg-slate-100 rounded-full border border-slate-200/40 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${completionPercentage}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-xs text-slate-500 font-semibold px-0.5">
+                  <span>{verifiedDocs} of {totalDocs} sections compiled</span>
+                  <span className="text-blue-600 font-bold">{completionPercentage}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Help Desk Module Component Block */}
+            <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 bg-white/10 border border-white/5 rounded-xl flex items-center justify-center text-blue-400">
+                  <HelpCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold tracking-tight text-white">Need Operational Help?</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">RTO Support Terminal</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <button className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all border border-white/5 backdrop-blur-xs group/btn">
+                  <span className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-slate-400 group-hover/btn:text-white" />
+                    View System Guide
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-500 transition-transform group-hover/btn:translate-x-0.5" />
+                </button>
+                <button className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all border border-white/5 backdrop-blur-xs group/btn">
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-slate-400 group-hover/btn:text-white" />
+                    Secure Chat Protocol
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-500 transition-transform group-hover/btn:translate-x-0.5" />
+                </button>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-900/50">
+                  <PhoneCall className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Hotline Routing</p>
+                  <p className="text-sm font-bold text-white mt-1.5 leading-none">1800-123-4567</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Framework Standard Pipeline Audit Metrics Section */}
+            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-4">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Metadata Audits</h4>
+              <ul className="space-y-3">
+                {[
+                  "Ensure string data parameters match clear structural scans",
+                  "Max single file block execution threshold: 5MB",
+                  "Permitted binary execution paths: JPG, PNG, PDF",
+                  "Original files bypass automated verification blocks faster"
+                ].map((tip, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-500 font-semibold leading-normal group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 mt-1.5 transition-transform group-hover:scale-125" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </PageLayout>
   );
 }

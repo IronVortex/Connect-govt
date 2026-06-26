@@ -1,18 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PageLayout } from '../../../components/layout/PageLayout';
 import { 
   Car, 
   ChevronRight, 
-  ArrowRight,
   Search,
   Clock,
-  Info,
   CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../../lib/utils';
+import { Input } from '../../../components/ui/Input';
 
 const services = [
   { 
@@ -66,82 +65,103 @@ const services = [
 ];
 
 export default function RtoServicesPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredServices = services.filter(service => 
+    service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    service.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <PageLayout>
-          <nav className="flex items-center gap-2 text-[13px] text-slate-400 mb-8 font-medium">
-            <Link href="/dashboard" className="hover:text-[#1D61FF] transition-colors">Dashboard</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <Link href="/departments" className="hover:text-[#1D61FF] transition-colors">Departments</Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-slate-600">Transport Department (RTO)</span>
-          </nav>
+      {/* Standard Segment Breadcrumbs */}
+      <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mb-6" aria-label="Breadcrumb">
+        <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Dashboard</Link>
+        <ChevronRight className="w-3 h-3 text-slate-300 shrink-0" />
+        <Link href="/departments" className="hover:text-blue-600 transition-colors">Departments</Link>
+        <ChevronRight className="w-3 h-3 text-slate-300 shrink-0" />
+        <span className="text-slate-800 font-semibold truncate">Transport Department (RTO)</span>
+      </nav>
 
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-blue-500 rounded-[20px] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                <Car className="w-10 h-10" />
-              </div>
-              <div>
-                <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">RTO Services</h2>
-                <p className="text-slate-500 text-[15px] font-medium mt-1">Select a service to start your application.</p>
-              </div>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search RTO services..."
-                className="pl-11 pr-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1D61FF]/10 focus:border-[#1D61FF] transition-all w-72"
-              />
-            </div>
+      {/* Header Profile Summary Component */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-500/10 border border-blue-50 rounded-lg flex items-center justify-center text-blue-600 shrink-0">
+            <Car className="w-5 h-5" />
           </div>
+          <div className="space-y-0.5">
+            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">RTO Services</h2>
+            <p className="text-slate-500 text-xs font-medium">Select an automated operational workspace to initiate your application.</p>
+          </div>
+        </div>
+        <div className="w-full sm:w-64 shrink-0">
+          <Input 
+            id="rto-search"
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search RTO workflows..."
+            icon={<Search className="w-4 h-4 text-slate-400" />}
+          />
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((service) => (
-              <Link 
-                key={service.id} 
-                href="/service-detail"
-                className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative overflow-hidden"
-              >
-                {service.popular && (
-                  <div className="absolute top-0 right-0">
-                    <div className="bg-[#10B981] text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider shadow-sm">
-                      Popular
-                    </div>
-                  </div>
-                )}
-                
-                <h3 className="text-[18px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight mb-2">
+      {/* Workflow Application Matrix Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filteredServices.map((service) => (
+          <Link 
+            key={service.id} 
+            href="/service-detail"
+            className="group bg-white rounded-xl p-5 border border-slate-200/70 hover:border-blue-500 hover:shadow-2xs transition-all duration-150 flex flex-col justify-between relative overflow-hidden"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <h3 className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight">
                   {service.name}
                 </h3>
-                <p className="text-[13px] text-slate-400 font-medium mb-8 flex-1">
-                  {service.description}
-                </p>
-                
-                <div className="space-y-3 pt-6 border-t border-slate-50">
-                  <div className="flex items-center justify-between text-[12px] font-bold">
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <Clock className="w-3.5 h-3.5" />
-                      Time
-                    </div>
-                    <span className="text-slate-600">{service.time}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[12px] font-bold">
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Fee
-                    </div>
-                    <span className="text-[#0F172A]">{service.fee}</span>
-                  </div>
+                {service.popular && (
+                  <span className="bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-wide shrink-0">
+                    Popular
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 font-medium leading-normal mb-6">
+                {service.description}
+              </p>
+            </div>
+            
+            <div className="space-y-2 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between text-[11px] font-medium">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Turnaround Time</span>
                 </div>
+                <span className="text-slate-700 font-semibold">{service.time}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-medium">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Statutory Fee</span>
+                </div>
+                <span className="text-slate-900 font-bold">{service.fee}</span>
+              </div>
+              
+              <div className="mt-4 pt-2">
+                <div className="w-full flex items-center justify-center py-2 bg-slate-50 group-hover:bg-blue-50/50 rounded-lg text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-all duration-150">
+                  <span>Initialize Service</span>
+                  <ChevronRight className="w-3.5 h-3.5 ml-0.5 group-hover:translate-x-0.5 transition-transform duration-150" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
 
-                <div className="mt-6 flex items-center justify-center py-3 bg-slate-50 group-hover:bg-[#F0F5FF] rounded-xl text-[13px] font-bold text-slate-500 group-hover:text-[#1D61FF] transition-all">
-                  Get Started
-                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </Link>
-            ))}
+        {filteredServices.length === 0 && (
+          <div className="col-span-full text-center py-12 rounded-xl border border-dashed border-slate-200 bg-white">
+            <p className="text-xs font-medium text-slate-400">No regulatory tasks correspond with your filter options.</p>
           </div>
+        )}
+      </div>
     </PageLayout>
   );
 }

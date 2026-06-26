@@ -6,16 +6,18 @@ import { useAuth } from '../../lib/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Application, UploadedDocument } from '@connect/types';
 import { normalizeUploadDocument } from '../../lib/uploadHelpers';
+import { Button } from '../../components/ui/Button';
+import { Alert } from '../../components/ui/Alert';
+import { cn } from '../../lib/utils';
 import {
   Bell,
   CheckCircle2,
-  Clock,
   FileText,
   Info,
   RefreshCw,
   Send,
   ShieldAlert,
-  Trash2,
+  X,
   XCircle,
 } from 'lucide-react';
 
@@ -35,10 +37,10 @@ function timeAgo(dateStr?: string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
   if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min${mins !== 1 ? 's' : ''} ago`;
-  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
   if (days === 1) return 'Yesterday';
-  return `${days} days ago`;
+  return `${days}d ago`;
 }
 
 function uploadToNotification(upload: UploadedDocument): NotificationItem {
@@ -87,7 +89,7 @@ function applicationToNotification(app: Application): NotificationItem {
     DRAFT: `Application for "${svcName}" saved as a draft.`,
     SUBMITTED: `Application for "${svcName}" submitted successfully.`,
     UNDER_REVIEW: `Application for "${svcName}" is now under review by the department.`,
-    APPROVED: `🎉 Application for "${svcName}" has been approved!`,
+    APPROVED: `Application for "${svcName}" has been approved!`,
     REJECTED: `Application for "${svcName}" was rejected. Please correct your documents.`,
     NEEDS_CORRECTION: `Application for "${svcName}" needs corrections before resubmission.`,
   };
@@ -111,26 +113,27 @@ function applicationToNotification(app: Application): NotificationItem {
   };
 }
 
+// Normalized styles directly mapping color variables uniformly
 function categoryIcon(n: NotificationItem) {
   if (n.category === 'upload') {
     if (n.title.includes('verified') || n.title.includes('detected'))
-      return { Icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' };
+      return { Icon: CheckCircle2, bg: 'bg-emerald-50 border-emerald-100', color: 'text-emerald-600' };
     if (n.title.includes('mismatch') || n.title.includes('Unrecognised'))
-      return { Icon: XCircle, bg: 'bg-red-50', color: 'text-red-500' };
-    return { Icon: ShieldAlert, bg: 'bg-amber-50', color: 'text-amber-500' };
+      return { Icon: XCircle, bg: 'bg-red-50 border-red-100', color: 'text-red-600' };
+    return { Icon: ShieldAlert, bg: 'bg-amber-50 border-amber-100', color: 'text-amber-600' };
   }
   if (n.category === 'application') {
     if (n.title.includes('approved'))
-      return { Icon: CheckCircle2, bg: 'bg-emerald-50', color: 'text-emerald-600' };
+      return { Icon: CheckCircle2, bg: 'bg-emerald-50 border-emerald-100', color: 'text-emerald-600' };
     if (n.title.includes('rejected'))
-      return { Icon: XCircle, bg: 'bg-red-50', color: 'text-red-500' };
+      return { Icon: XCircle, bg: 'bg-red-50 border-red-100', color: 'text-red-600' };
     if (n.title.includes('Correction'))
-      return { Icon: ShieldAlert, bg: 'bg-orange-50', color: 'text-orange-500' };
+      return { Icon: ShieldAlert, bg: 'bg-orange-50 border-orange-100', color: 'text-orange-600' };
     if (n.title.includes('submitted'))
-      return { Icon: Send, bg: 'bg-blue-50', color: 'text-blue-600' };
-    return { Icon: FileText, bg: 'bg-slate-100', color: 'text-slate-500' };
+      return { Icon: Send, bg: 'bg-blue-50 border-blue-100', color: 'text-blue-600' };
+    return { Icon: FileText, bg: 'bg-slate-50 border-slate-200/60', color: 'text-slate-600' };
   }
-  return { Icon: Info, bg: 'bg-[#EEF2FF]', color: 'text-[#1D4ED8]' };
+  return { Icon: Info, bg: 'bg-blue-50 border-blue-100', color: 'text-blue-700' };
 }
 
 const FILTERS = ['All', 'Uploads', 'Applications'] as const;
@@ -163,7 +166,7 @@ export default function NotificationsPage() {
         .map(applicationToNotification);
       setNotifications([...uploadNotifs, ...appNotifs]);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load notifications.');
+      setError(err?.response?.data?.message || 'Failed to load system notifications.');
     } finally {
       setLoading(false);
     }
@@ -191,147 +194,149 @@ export default function NotificationsPage() {
 
   return (
     <PageLayout>
+      {/* Title Segment Block */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Notifications</h2>
+            {unreadCount > 0 && (
+              <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                {unreadCount} pending
+              </span>
+            )}
+          </div>
+          <p className="text-slate-500 text-xs font-medium">
+            Track validation logs, pipeline reviews, and verification metrics.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+              Mark all as read
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={fetchData} disabled={loading} className="gap-1.5 text-xs">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+        </div>
+      </div>
 
-          {/* header */}
-          <div className="flex items-center justify-between mb-10">
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">
-                  Notifications
-                </h2>
-                {unreadCount > 0 && (
-                  <span className="bg-[#1D61FF] text-white text-xs font-extrabold px-2.5 py-1 rounded-full">
-                    {unreadCount} new
-                  </span>
-                )}
-              </div>
-              <p className="text-slate-500 text-[15px] font-medium mt-1">
-                Updates from your document uploads and application status changes.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllRead}
-                  className="text-sm font-bold text-[#1D61FF] hover:underline"
-                >
-                  Mark all as read
-                </button>
+      {/* Segment Filter Selection Pills */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-6">
+        {FILTERS.map((f) => {
+          const count =
+            f === 'All' ? notifications.length
+            : f === 'Uploads' ? notifications.filter((n) => n.category === 'upload').length
+            : notifications.filter((n) => n.category === 'application').length;
+          const isActive = filter === f;
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 flex items-center gap-2 ${
+                isActive ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>{f}</span>
+              {count > 0 && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {count}
+                </span>
               )}
-              <button
-                onClick={fetchData}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Stream Rendering Layout */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-slate-200/60 bg-white p-4 flex items-start gap-4 animate-pulse">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 shrink-0" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3.5 bg-slate-100 rounded w-1/4" />
+                <div className="h-3 bg-slate-100 rounded w-1/2" />
+              </div>
             </div>
+          ))}
+        </div>
+      ) : error ? (
+        <Alert variant="error" title="Pipeline Failure Log">{error}</Alert>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 rounded-xl border border-dashed border-slate-200 bg-white">
+          <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3 mx-auto border border-slate-100">
+            <Bell className="w-5 h-5 text-slate-300" />
           </div>
-
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl w-fit mb-8">
-            {FILTERS.map((f) => {
-              const count =
-                f === 'All' ? notifications.length
-                : f === 'Uploads' ? notifications.filter((n) => n.category === 'upload').length
-                : notifications.filter((n) => n.category === 'application').length;
-              return (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2 ${
-                    filter === f ? 'bg-white text-[#1D61FF] shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {f}
-                  {count > 0 && (
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                      filter === f ? 'bg-[#1D61FF] text-white' : 'bg-slate-300 text-white'
-                    }`}>
-                      {count}
-                    </span>
+          <h3 className="text-sm font-semibold text-slate-900">Activity buffer clear</h3>
+          <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto font-medium">
+            No pending action items or background processing updates match this filter choice.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filtered.map((n) => {
+            const { Icon, bg, color } = categoryIcon(n);
+            const isRead = readIds.has(n.id);
+            return (
+              <div
+                key={n.id}
+                onClick={() => markRead(n.id)}
+                className={`rounded-xl border bg-white p-4 flex items-start gap-4 cursor-pointer transition-all duration-150 group relative ${
+                  isRead ? 'border-slate-200/60 opacity-65 hover:opacity-85' : 'border-slate-200 hover:border-slate-300 hover:shadow-2xs'
+                }`}
+              >
+                {/* Visual Context Anchors */}
+                <div className="relative shrink-0">
+                  <div className={cn(
+                    "w-9 h-9 rounded-lg border flex items-center justify-center",
+                    bg,
+                    color
+                  )}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  {!isRead && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-600 rounded-full border-2 border-white" />
                   )}
-                </button>
-              );
-            })}
-          </div>
+                </div>
 
-          {loading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-[24px] border border-slate-100 bg-white p-6 flex items-start gap-5 animate-pulse">
-                  <div className="w-12 h-12 rounded-3xl bg-slate-100 shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-slate-100 rounded-lg w-1/3" />
-                    <div className="h-3 bg-slate-100 rounded-lg w-2/3" />
+                {/* Content Payload Elements */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <h3 className={`text-xs font-semibold tracking-tight ${isRead ? 'text-slate-500' : 'text-slate-900'}`}>
+                      {n.title}
+                    </h3>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-slate-400 font-medium">{n.time}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-150"
+                        title="Dismiss alert"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 leading-normal font-medium">{n.description}</p>
+                  
+                  <div className="mt-3 flex items-center gap-1.5">
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                      n.category === 'upload' 
+                        ? 'bg-blue-50/60 text-blue-600 border-blue-100' 
+                        : 'bg-slate-50 text-slate-500 border-slate-200/60'
+                    }`}>
+                      {n.category}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-[24px] border border-red-200 bg-red-50 p-10 text-center text-red-700 font-semibold">
-              {error}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-[32px] border border-slate-100 bg-white p-16 flex flex-col items-center text-center shadow-sm">
-              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
-                <Bell className="w-10 h-10 text-slate-300" />
               </div>
-              <h3 className="text-xl font-extrabold text-[#0F172A]">No notifications yet</h3>
-              <p className="text-slate-500 text-sm mt-2 max-w-sm font-medium">
-                Upload documents or submit an application to start seeing activity here.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filtered.map((n) => {
-                const { Icon, bg, color } = categoryIcon(n);
-                const isRead = readIds.has(n.id);
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => markRead(n.id)}
-                    className={`rounded-[24px] border bg-white p-6 shadow-sm shadow-slate-200/40 flex items-start gap-5 cursor-pointer transition-all duration-200 hover:shadow-md group ${
-                      isRead ? 'border-slate-100 opacity-70' : 'border-slate-200 hover:border-[#1D61FF]/20'
-                    }`}
-                  >
-                    <div className="relative shrink-0">
-                      <div className={`w-12 h-12 rounded-3xl ${bg} flex items-center justify-center ${color}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      {!isRead && (
-                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#1D61FF] rounded-full border-2 border-white" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4">
-                        <h3 className={`text-[15px] font-bold ${isRead ? 'text-slate-500' : 'text-[#0F172A]'}`}>
-                          {n.title}
-                        </h3>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-slate-400 font-medium">{n.time}</span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
-                            title="Dismiss"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{n.description}</p>
-                      <span className={`mt-2 inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        n.category === 'upload' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {n.category}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            );
+          })}
+        </div>
+      )}
     </PageLayout>
   );
 }

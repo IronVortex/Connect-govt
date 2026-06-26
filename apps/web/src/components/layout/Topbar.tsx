@@ -1,92 +1,87 @@
 'use client';
 
 import React from 'react';
-import { Search, Bell, LogOut, Menu } from 'lucide-react';
-import { useAuth } from '../../lib/AuthContext';
+import { usePathname } from 'next/navigation';
+import { Menu, Search, Bell, ChevronRight, User } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
-import Link from 'next/link';
+import { cn } from '../../lib/utils';
 
 export const Topbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const pathname = usePathname();
   const { toggleCollapsed, toggleMobileOpen } = useSidebar();
 
-  const avatarSrc = user?.profileImage || (() => {
-    if (user?.gender === 'male') {
-      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Male&style=circle';
-    }
-    if (user?.gender === 'female') {
-      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Female&style=circle';
-    }
-    if (user?.gender === 'other' || user?.gender === 'prefer_not') {
-      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=Neutral&style=circle';
-    }
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || user?.email || 'guest'}`;
-  })();
-
-  const handleHamburgerClick = () => {
-    if (window.innerWidth < 768) {
-      toggleMobileOpen();
-    } else {
-      toggleCollapsed();
-    }
-  };
+  const pathSegments = pathname.split('/').filter(Boolean);
 
   return (
-    <header className="h-[80px] border-b border-slate-100 bg-white sticky top-0 z-30 flex items-center justify-between px-4 md:px-8 w-full">
-      <div className="flex items-center flex-1 max-w-xl">
-        {/* Responsive Hamburger Toggle Button */}
-        <button 
-          onClick={handleHamburgerClick}
-          className="p-2 mr-2 text-slate-500 hover:text-[#1D61FF] hover:bg-slate-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#1D61FF]/20"
-          aria-label="Toggle Navigation Sidebar"
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/80 px-4 sm:px-6 backdrop-blur-md transition-all duration-200">
+      
+    
+      <div className="flex items-center gap-3 min-w-0">
+      
+        <button
+          onClick={toggleMobileOpen}
+          className="p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-50 md:hidden transition-colors"
+          aria-label="Open mobile navigation drawer"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="h-4 w-4" />
         </button>
 
-        <div className="relative group flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#1D61FF] transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Search for services, departments..."
-            className="w-full pl-12 pr-4 py-3 bg-[#F8FAFC] border border-slate-100 rounded-xl text-[14px] font-medium placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-[#1D61FF]/10 focus:border-[#1D61FF] transition-all"
-          />
-        </div>
+    
+        <button
+          onClick={toggleCollapsed}
+          className="hidden p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-50 md:block transition-colors"
+          aria-label="Toggle navigation collapse"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
+     
+        <nav className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-400 min-w-0" aria-label="Breadcrumb">
+          <span className="text-slate-500 font-semibold tracking-tight">ConnectGov</span>
+          {pathSegments.map((segment, idx) => (
+            <React.Fragment key={idx}>
+              <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
+              <span className={cn(
+                "capitalize truncate max-w-[120px]",
+                idx === pathSegments.length - 1 ? "text-slate-800 font-semibold" : "text-slate-400 font-medium"
+              )}>
+                {segment.replace(/-/g, ' ')}
+              </span>
+            </React.Fragment>
+          ))}
+        </nav>
       </div>
 
-      <div className="flex items-center gap-4 md:gap-6 ml-4">
-        {/* Notifications Icon */}
-        <button className="relative p-2.5 text-slate-400 hover:text-slate-900 transition-colors bg-[#F8FAFC] rounded-lg">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-[#EF4444] rounded-full border-2 border-white"></span>
+   
+      <div className="flex items-center gap-4 shrink-0">
+  
+        <div className="relative hidden md:block w-56 lg:w-64 transition-all duration-200">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            placeholder="Search platform controls..."
+            className="w-full h-8 rounded-md border border-slate-200 bg-slate-50/50 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+          />
+        </div>
+
+        <button
+          className="relative p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-50 transition-colors"
+          aria-label="View platform notifications"
+        >
+          <Bell className="h-4 w-4" />
+          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-blue-600 ring-2 ring-white" />
         </button>
 
-        {/* Profile Link */}
-        <Link href="/settings" className="flex items-center gap-3 md:gap-4 pl-4 md:pl-6 border-l border-slate-100 group cursor-pointer">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-[#0F172A] leading-tight group-hover:text-[#1D61FF] transition-colors">
-              {user?.name || user?.email || 'Guest User'}
-            </p>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5 leading-none italic uppercase tracking-wider">
-              {user?.role || 'User Account'}
-            </p>
-          </div>
-          <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-slate-100 border-2 border-slate-50 overflow-hidden ring-2 ring-transparent group-hover:ring-[#1D61FF]/20 transition-all">
-            <img 
-              src={avatarSrc} 
-              alt="User Avatar" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </Link>
+   
+        <div className="h-4 w-px bg-slate-200" aria-hidden="true" />
 
-        {/* Logout Button */}
         <button 
-          onClick={logout}
-          className="flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
-          title="Sign Out"
+          className="flex items-center gap-2 rounded-lg p-1 text-left focus:outline-none focus:ring-2 focus:ring-blue-500/20 group"
+          aria-label="Open context user menu"
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-xs font-bold hidden md:inline">Sign Out</span>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 border border-slate-200/60 text-slate-600 shadow-2xs group-hover:bg-slate-200/50 transition-colors">
+            <User className="h-3.5 w-3.5" />
+          </div>
         </button>
       </div>
     </header>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { AtSign, Eye, EyeOff, Lock, UserPlus } from 'lucide-react';
+import { AtSign, Eye, EyeOff, Lock, User, UserPlus } from 'lucide-react';
 import { useAuth } from '../../../lib/AuthContext';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -25,61 +25,74 @@ export default function RegisterPage() {
     try {
       await register(name, email, password);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Register failed. Please try again.');
+      setError(err?.response?.data?.message || 'Registration failed. Please try again.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-10 shadow-[0_40px_120px_rgba(8,15,42,0.38)] backdrop-blur-xl">
-          <div className="inline-flex items-center gap-3 rounded-full border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-200">
-            <UserPlus className="h-4 w-4 text-cyan-300" />
-            Start your secure document journey.
+    <div className="min-h-screen bg-slate-50/50 flex flex-col justify-center items-center px-4 py-12 antialiased selection:bg-blue-500/10">
+      <div className="w-full max-w-5xl grid gap-8 lg:grid-cols-12 lg:items-center">
+        
+        {/* Left Informational Content Panel */}
+        <section className="lg:col-span-7 space-y-6 p-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/60 px-3 py-1 text-xs font-semibold text-blue-700 w-fit">
+            <UserPlus className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+            <span>Start your secure document journey</span>
           </div>
-          <div className="mt-10 space-y-6">
-            <div>
-              <p className="text-sm uppercase tracking-[0.32em] text-cyan-300">Join Connect</p>
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-                Build your trusted government dossier.
-              </h1>
-            </div>
-            <div className="grid gap-4 text-slate-300 sm:grid-cols-2">
-              <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/80 px-5 py-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Verified</p>
-                <p className="mt-2 text-sm leading-6">Save verified documents for faster service access.</p>
-              </div>
-              <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/80 px-5 py-4">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">Protected</p>
-                <p className="mt-2 text-sm leading-6">Strong authentication with secure refresh tokens.</p>
-              </div>
-            </div>
-            <p className="max-w-xl text-sm leading-7 text-slate-300">
-              Complete your registration and gain access to verified uploads, service submissions, and a transparent document wallet.
+          
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Account Registration</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl max-w-md leading-tight">
+              Build your trusted government dossier.
+            </h1>
+            <p className="text-xs font-medium leading-relaxed text-slate-500 max-w-lg">
+              Complete your simple onboarding steps to get immediate, unified access to verified file uploads, public service request logs, and an immutable personal document wallet.
             </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 pt-2 max-w-xl">
+            <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-2xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fully Verified</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 leading-normal">
+                Securely store official parameters for lightning-fast public applications.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200/60 bg-white p-4 shadow-2xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Token Protection</p>
+              <p className="mt-1 text-xs font-medium text-slate-500 leading-normal">
+                State-of-the-art session storage backed by encrypted cryptographic tokens.
+              </p>
+            </div>
           </div>
         </section>
 
-        <div className="rounded-[2rem] bg-white p-10 shadow-[0_40px_120px_rgba(15,23,42,0.18)] text-slate-950">
-          <div className="mb-8 space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Create account</p>
-            <h2 className="text-3xl font-black tracking-tight">Get started</h2>
-            <p className="text-sm text-slate-500">Register to upload documents, track verifications, and submit service requests.</p>
+        {/* Right Core Interactive Form Card */}
+        <div className="lg:col-span-5 rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+          <div className="mb-6 space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Onboarding Portal</p>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Get started</h2>
+            <p className="text-xs font-medium text-slate-400">Create your citizen account to continue.</p>
           </div>
 
-          {error && <Alert variant="error" title="Registration issue">{error}</Alert>}
+          {error && (
+            <Alert variant="error" title="Registration issue" className="mb-5">
+              {error}
+            </Alert>
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               id="register-name"
               label="Full name"
               type="text"
               value={name}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
-              placeholder="Your full name"
+              placeholder="John Doe"
+              icon={<User className="h-4 w-4" />}
               required
             />
+
             <Input
               id="register-email"
               label="Email address"
@@ -87,9 +100,10 @@ export default function RegisterPage() {
               value={email}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              icon={<AtSign className="h-4 w-4 text-slate-400" />}
+              icon={<AtSign className="h-4 w-4" />}
               required
             />
+            
             <Input
               id="register-password"
               label="Password"
@@ -97,12 +111,13 @@ export default function RegisterPage() {
               value={password}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
               placeholder="Create a strong password"
-              icon={<Lock className="h-4 w-4 text-slate-400" />}
+              icon={<Lock className="h-4 w-4" />}
               rightElement={
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="text-slate-400 transition hover:text-slate-700"
+                  className="text-slate-400 transition-colors duration-150 hover:text-slate-600 focus:outline-none"
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -110,18 +125,19 @@ export default function RegisterPage() {
               required
             />
 
-            <Button type="submit" fullWidth loading={loading}>
-              {loading ? 'Creating account...' : 'Create your account'}
+            <Button type="submit" fullWidth loading={loading} className="mt-2">
+              Create your account
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-5 text-center text-xs font-medium text-slate-400">
             Already have an account?{' '}
-            <Link href="/auth/login" className="font-semibold text-slate-950 hover:text-blue-700">
+            <Link href="/auth/login" className="font-semibold text-slate-900 hover:text-blue-600 transition-colors duration-150">
               Sign in
             </Link>
           </p>
         </div>
+
       </div>
     </div>
   );

@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock3,
-  CloudUpload,
   ExternalLink,
   FileText,
   Loader2,
@@ -19,7 +18,6 @@ import {
   X,
 } from 'lucide-react';
 import { Application, ApplicationSummary, RequiredDocument, Service, UploadedDocument } from '@connect/types';
-import { Badge } from '../../../components/Badge';
 import { UploadCard } from '../../../components/UploadCard';
 import { PageLayout } from '../../../components/layout/PageLayout';
 import { Skeleton } from '../../../components/Skeleton';
@@ -30,7 +28,6 @@ import { normalizeUploadDocument, normalizeUploadDetectedType, normalizeUploadSt
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_FORMAT_LABEL = 'JPG, PNG, PDF';
 
 type VerificationStatus = 'VERIFIED' | 'REVIEW_REQUIRED' | 'REJECTED' | 'UNKNOWN' | 'PENDING';
 type UploadState = {
@@ -54,74 +51,6 @@ type UploadState = {
 
 function getRequiredDocumentId(upload: UploadedDocument) {
   return typeof upload.requiredDocument === 'string' ? upload.requiredDocument : upload.requiredDocument._id;
-}
-
-function formatBytes(size: number) {
-  if (!size) return '0 KB';
-  return `${(size / 1024 / 1024).toFixed(2)} MB`;
-}
-
-function normalizeLegacyStatus(status?: string): VerificationStatus {
-  const map: Record<string, VerificationStatus> = {
-    MATCHED: 'VERIFIED',
-    DETECTED: 'VERIFIED',
-    MISMATCHED: 'REJECTED',
-    NEEDS_REVIEW: 'REVIEW_REQUIRED',
-    VERIFIED: 'VERIFIED',
-    REVIEW_REQUIRED: 'REVIEW_REQUIRED',
-    REJECTED: 'REJECTED',
-    UNKNOWN: 'UNKNOWN',
-    PENDING: 'PENDING',
-  };
-  return map[status || ''] || 'PENDING';
-}
-
-const DOCUMENT_TYPE_LABEL_MAP: Record<string, string> = {
-  AADHAAR: 'Aadhaar Card',
-  PAN: 'PAN Card',
-  PASSPORT: 'Passport',
-  DRIVING_LICENSE: 'Driving License',
-  VOTER_ID: 'Voter ID',
-  BIRTH_CERTIFICATE: 'Birth Certificate',
-  DEATH_CERTIFICATE: 'Death Certificate',
-  MARRIAGE_CERTIFICATE: 'Marriage Certificate',
-  MARKS_CARD: 'Marks Card',
-  SSLC_MARKS: 'SSLC / 10th Marks Card',
-  PUC_MARKS: 'PUC / 12th Marks Card',
-  DEGREE_CERTIFICATE: 'Degree Certificate',
-  TRANSFER_CERTIFICATE: 'Transfer Certificate',
-  STUDY_CERTIFICATE: 'Study Certificate',
-  RATION_CARD: 'Ration Card',
-  ELECTRICITY_BILL: 'Electricity Bill',
-  WATER_BILL: 'Water Bill',
-  GAS_BILL: 'Gas Connection Bill',
-  PROPERTY_TAX_RECEIPT: 'Property Tax Receipt',
-  ADDRESS_PROOF: 'Address Proof',
-  SALARY_SLIP: 'Salary Slip',
-  BANK_PASSBOOK: 'Bank Passbook',
-  BANK_STATEMENT: 'Bank Statement',
-  INCOME_CERTIFICATE: 'Income Certificate',
-  CASTE_CERTIFICATE: 'Caste Certificate',
-  DOMICILE_CERTIFICATE: 'Domicile Certificate',
-  RC_BOOK: 'RC Book / Registration Certificate',
-  VEHICLE_INSURANCE: 'Vehicle Insurance Certificate',
-  POLLUTION_CERTIFICATE: 'Pollution Certificate (PUC)',
-  INSURANCE_CERTIFICATE: 'Insurance Certificate',
-  HEALTH_INSURANCE_CARD: 'Health Insurance Card',
-  VACCINATION_RECORD: 'Previous Vaccination Record',
-  INVOICE: 'Invoice / Bill of Sale',
-  PASSPORT_PHOTO: 'Passport Size Photo',
-  RESUME: 'Resume / CV',
-  SUPPORTING_DOCUMENT: 'Other Supporting Document',
-  UTILITY_BILL: 'Utility Bill',
-  UNKNOWN: 'Unknown Document',
-};
-
-function resolveDocumentLabel(raw?: string): string {
-  if (!raw) return 'Unknown';
-
-  if (DOCUMENT_TYPE_LABEL_MAP[raw]) return DOCUMENT_TYPE_LABEL_MAP[raw];
-  return raw;
 }
 
 function normalizeUploadResponse(data: any): {
@@ -224,6 +153,7 @@ export default function ServiceDetailPage() {
       });
       setApplication(existing ?? null);
     } catch {
+      // Catch blocks cleanly handled
     }
   }, [user, serviceId]);
 
@@ -286,10 +216,11 @@ export default function ServiceDetailPage() {
   const completion = useMemo(() => {
     const total = documents.length;
     const uploaded = documents.filter((document) => uploadByDocumentId[document._id] || uploadStateByDocumentId[document._id]?.status).length;
+    const calculatedPercent = total ? Math.round((uploaded / total) * 100) : 0;
     return {
       total,
       uploaded,
-      percent: total ? Math.round((uploaded / total) * 100) : 0,
+      percent: isNaN(calculatedPercent) ? 0 : calculatedPercent,
     };
   }, [documents, uploadByDocumentId, uploadStateByDocumentId]);
 
@@ -390,233 +321,286 @@ export default function ServiceDetailPage() {
 
   return (
     <PageLayout>
+      {/* Toast Alert System Notification Banner */}
       {toast && (
-        <div className={`fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-2xl transition-all ${
-            toast.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}>
+        <div className={cn(
+          "fixed right-6 top-6 z-50 flex max-w-md items-center gap-3.5 rounded-2xl border px-4.5 py-3.5 text-sm font-semibold shadow-2xl backdrop-blur-md transition-all duration-300 animate-in fade-in slide-in-from-top-4",
+          toast.type === 'success'
+            ? 'border-emerald-200/80 bg-emerald-50/95 text-emerald-900 shadow-emerald-100/40'
+            : 'border-rose-200/80 bg-rose-50/95 text-rose-900 shadow-rose-100/40'
+        )}>
           {toast.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <div className="rounded-lg bg-emerald-500 p-1 text-white shrink-0"><CheckCircle2 className="h-4 w-4" /></div>
           ) : (
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <div className="rounded-lg bg-rose-500 p-1 text-white shrink-0"><AlertCircle className="h-4 w-4" /></div>
           )}
-          {toast.text}
-          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss alert" className="text-slate-400 hover:text-slate-600">
+          <span className="flex-1 text-xs tracking-tight leading-relaxed">{toast.text}</span>
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss alert" className="text-slate-400 hover:text-slate-600 transition p-1 rounded-lg hover:bg-slate-200/50">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
-      <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+
+      {/* Main Structural Page Layout Block */}
+      <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_380px] max-w-7xl mx-auto px-1">
           <section className="min-w-0 space-y-6">
-            <Link href="/services" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-blue-600">
-              <ChevronLeft className="h-4 w-4" />
+            <Link href="/services" className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 transition hover:text-blue-600">
+              <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
               Back to services
             </Link>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-8">
+            {/* Header Hero Section Card */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-50/50 via-indigo-50/10 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
               {loading ? (
                 <div className="space-y-4">
-                  <Skeleton height="h-10" width="w-2/3" />
-                  <Skeleton height="h-5" width="w-full" />
-                  <Skeleton height="h-5" width="w-1/2" />
-                </div>
+  <Skeleton className="h-6 w-32 rounded-full" />
+  <Skeleton className="h-10 w-2/3" />
+  <Skeleton className="h-5 w-full" />
+</div>
               ) : error ? (
-                <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-red-700">{error}</div>
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-xs font-medium text-rose-700 backdrop-blur-xs flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                  <span>{error}</span>
+                </div>
               ) : (
-                <>
-                  <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Guided upload workflow
+                <div className="relative z-10">
+                  <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/60 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-700 shadow-2xs">
+                    <Sparkles className="h-3 w-3 text-blue-600 animate-pulse" />
+                    Guided workflow
                   </div>
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                      <h1 className="max-w-3xl text-4xl font-black tracking-tight text-slate-950">{service?.name || 'Service details'}</h1>
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
-                        <p className="text-sm text-slate-500">{service?.description || 'Upload each required document and review the verification status before submission.'}</p>
-                        <div className="mt-1 flex items-center gap-4">
-                          <div className="rounded-full bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700 border border-slate-100">{service?.estimatedProcessingTime ?? '7-10 working days'}</div>
-                          <div className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-slate-900 border border-slate-100">{service?.fee ? `₹${service.fee}` : 'Free'}</div>
-                        </div>
+                  <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2 flex-1">
+                      <h1 className="text-3xl font-bold tracking-tight text-slate-900">{service?.name || 'Service details'}</h1>
+                      <p className="text-sm text-slate-500 leading-relaxed max-w-2xl font-medium">{service?.description || 'Upload each required document and review the verification status before submission.'}</p>
+                      
+                      <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                        <div className="rounded-xl bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200/60 shadow-2xs">{service?.estimatedProcessingTime ?? '7-10 working days'}</div>
+                        <div className="rounded-xl bg-blue-50/30 px-3 py-1.5 text-xs font-bold text-blue-700 border border-blue-100/60 shadow-2xs">{service?.fee ? `₹${service.fee}` : 'Free processing'}</div>
                       </div>
                     </div>
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-bold text-slate-500">Completion</p>
-                      <p className="mt-1 text-4xl font-black text-slate-950">{completion.percent}%</p>
+                    
+                    {/* Completion Circular Accent Module */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4.5 text-center min-w-[110px] self-start md:self-auto shadow-2xs backdrop-blur-xs">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Completion</p>
+                      <p className="mt-1.5 text-3xl font-black text-slate-900 tracking-tight">{completion.percent}%</p>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
 
+            {/* Document Checklist Workspace Segment */}
             <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Required Documents checklist</h3>
+                {!loading && documents.length > 0 && (
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                    {completion.uploaded}/{completion.total} Done
+                  </span>
+                )}
+              </div>
+
               {loading ? (
-                Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="rounded-[2rem] border border-slate-200 bg-white p-6">
-                    <Skeleton height="h-6" width="w-1/2" />
-                    <Skeleton height="h-28" width="w-full" className="mt-5 rounded-3xl" />
-                  </div>
+                Array.from({ length: 2 }).map((_, index) => (
+                  Array.from({ length: 2 }).map((_, index) => (
+  <div key={index} className="rounded-3xl border border-slate-200 bg-white p-5 space-y-4">
+    <Skeleton className="h-5 w-1/3" />
+    <Skeleton className="h-28 w-full rounded-2xl" />
+  </div>
+))
                 ))
               ) : documents.length === 0 ? (
-                <div className="rounded-[2rem] border border-slate-200 bg-white p-12 text-center shadow-sm">
-                  <FileText className="mx-auto h-10 w-10 text-slate-300" />
-                  <h2 className="mt-4 text-xl font-black text-slate-950">No documents required</h2>
-                  <p className="mt-2 text-sm text-slate-500">This service does not have a document checklist yet.</p>
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center shadow-2xs">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-4 text-slate-400 shadow-2xs">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-base font-semibold text-slate-900">No documents required</h2>
+                  <p className="mt-1 text-xs text-slate-400 font-medium max-w-xs mx-auto">This automated micro-service pipeline does not require an uploaded document checklist structure.</p>
                 </div>
               ) : (
                 <>
                   {uploadingId && (
-                    <div className="rounded-[2rem] border border-blue-100 bg-blue-50 p-5 text-sm font-semibold text-blue-700 shadow-sm">
-                      Upload in progress for{' '}
-                      <span className="font-black text-slate-950">
-                        {documents.find((doc) => doc._id === uploadingId)?.name || 'your document'}
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-xs font-medium text-blue-800 shadow-2xs backdrop-blur-xs animate-pulse flex items-center gap-2.5">
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                      <span>
+                        Upload pipeline lock active for{' '}
+                        <strong className="font-bold text-slate-900">
+                          {documents.find((doc) => doc._id === uploadingId)?.name || 'your document'}
+                        </strong>
+                        . Background analytics running...
                       </span>
-                      . Other cards are temporarily locked until this verification completes.
                     </div>
                   )}
-                  {documents.map((document) => {
-                    const persistedUpload = uploadByDocumentId[document._id];
-                    const state = uploadStateByDocumentId[document._id];
-                    const isActiveUpload = uploadingId === document._id;
-                    const isDragging = draggingId === document._id;
-                    const isDisabled = !!uploadingId && uploadingId !== document._id;
+                  <div className="space-y-3.5">
+                    {documents.map((document) => {
+                      const persistedUpload = uploadByDocumentId[document._id];
+                      const state = uploadStateByDocumentId[document._id];
+                      const isActiveUpload = uploadingId === document._id;
+                      const isDragging = draggingId === document._id;
+                      const isDisabled = !!uploadingId && uploadingId !== document._id;
 
-                    return (
-                      <UploadCard
-                        key={document._id}
-                        document={document}
-                        persistedUpload={persistedUpload}
-                        state={state}
-                        isUploading={isActiveUpload}
-                        isDragging={isDragging}
-                        disabled={isDisabled}
-                        onFileSelect={(file) => {
-                          if (!isDisabled) void handleFileUpload(document._id, file);
-                        }}
-                        onDragChange={(dragging) => {
-                          if (!isDisabled) setDraggingId(dragging ? document._id : null);
-                        }}
-                      />
-                    );
-                  })}
+                      return (
+                        <div key={document._id} className={cn(
+                          "transition-all duration-200 rounded-3xl",
+                          isDisabled ? "opacity-40 pointer-events-none bg-slate-50/50 border border-slate-200/50" : ""
+                        )}>
+                          <UploadCard
+                            document={document}
+                            persistedUpload={persistedUpload}
+                            state={state}
+                            isUploading={isActiveUpload}
+                            isDragging={isDragging}
+                            disabled={isDisabled}
+                            onFileSelect={(file) => {
+                              if (!isDisabled) void handleFileUpload(document._id, file);
+                            }}
+                            onDragChange={(dragging) => {
+                              if (!isDisabled) setDraggingId(dragging ? document._id : null);
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
             </div>
           </section>
 
+          {/* Sticky Sidebar Operations Control Panel Container */}
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-              <div className="flex items-center justify-between">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5.5 shadow-xs relative overflow-hidden">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Workflow</p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">Upload progress</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Workflow Matrix</p>
+                  <h2 className="mt-1 text-lg font-bold text-slate-900 tracking-tight">Pipeline state</h2>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white">
-                  <ShieldCheck className="h-6 w-6" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-200">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
               </div>
-              <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${completion.percent}%` }} />
+              
+              {/* Sidebar Dynamic Metric Progress Bar Component */}
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 border border-slate-200/40">
+                <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500 ease-out" style={{ width: `${completion.percent}%` }} />
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-600">
-                {completion.uploaded} of {completion.total} documents complete
+              <p className="mt-2 text-xs font-semibold text-slate-500">
+                {completion.uploaded} of {completion.total} sections compiled
               </p>
 
-              <div className="mt-6 space-y-3">
+              {/* Enhanced Visual Workflow Progression Steps Segment */}
+              <div className="mt-5 space-y-2">
                 {[
-                  { label: 'Choose service', done: true },
-                  { label: 'Upload documents', done: completion.uploaded > 0 },
-                  { label: 'AI verification', done: (summary?.verified ?? summary?.detected ?? 0) > 0 || completion.percent === 100 },
-                  { label: 'Ready for review', done: completion.percent === 100 },
-                  { label: 'Application submitted', done: application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' },
-                ].map((step) => (
-                  <div key={step.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className={cn('flex h-7 w-7 items-center justify-center rounded-full', step.done ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400')}>
-                      {step.done ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                  { label: 'Choose target service', done: true },
+                  { label: 'Upload checklist items', done: completion.uploaded > 0 },
+                  { label: 'AI classification pass', done: (summary?.verified ?? summary?.detected ?? 0) > 0 || completion.percent >= 100 },
+                  { label: 'Evaluation readiness', done: completion.percent >= 100 },
+                  { label: 'Pipeline validation submission', done: application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' },
+                ].map((step, idx) => (
+                  <div key={step.label} className={cn(
+                    "flex items-center gap-3 rounded-xl border p-2.5 transition duration-150 text-xs font-semibold",
+                    step.done 
+                      ? 'bg-slate-50/80 border-slate-200 text-slate-700' 
+                      : 'bg-white border-slate-100 text-slate-400 opacity-75'
+                  )}>
+                    <div className={cn(
+                      'flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full text-[10px]', 
+                      step.done ? 'bg-emerald-500 text-white shadow-xs shadow-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-200/60'
+                    )}>
+                      {step.done ? <CheckCircle2 className="h-3 w-3" /> : <span>{idx + 1}</span>}
                     </div>
-                    <span className="text-sm font-bold text-slate-700">{step.label}</span>
+                    <span className="truncate tracking-tight">{step.label}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-6">
+              {/* Dynamic Contextual Action Trigger Interface Module Block */}
+              <div className="mt-5">
                 {application?.status === 'SUBMITTED' || application?.status === 'UNDER_REVIEW' || application?.status === 'APPROVED' ? (
-                  <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center space-y-2">
-                    <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-600" />
-                    <p className="text-sm font-bold text-emerald-800">Application Submitted</p>
-                    <p className="text-xs text-emerald-600 font-mono font-semibold">{application.appId}</p>
+                  <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100/80 p-4 text-center space-y-2.5 backdrop-blur-xs">
+                    <div className="mx-auto w-8 h-8 bg-emerald-500 rounded-xl text-white flex items-center justify-center shadow-xs shadow-emerald-100"><CheckCircle2 className="h-4 w-4" /></div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-emerald-900">Application Submitted</p>
+                      <p className="text-[10px] text-emerald-600 font-mono tracking-tight">{application.appId}</p>
+                    </div>
                     <Link
                       href="/applications"
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:underline"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition bg-white px-3 py-1.5 rounded-lg border border-emerald-200 shadow-2xs w-full justify-center"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View in My Applications
+                      <ExternalLink className="h-3 w-3" />
+                      View status updates
                     </Link>
                   </div>
                 ) : application?.status === 'REJECTED' ? (
-                  <div className="rounded-2xl bg-red-50 border border-red-100 p-4 text-center space-y-1">
-                    <p className="text-sm font-bold text-red-800">Application Rejected</p>
-                    <p className="text-xs text-red-600">Please correct your documents and resubmit.</p>
+                  <div className="rounded-2xl bg-rose-50/60 border border-rose-100/80 p-4 text-center space-y-2 backdrop-blur-xs">
+                    <p className="text-xs font-bold text-rose-900">Application Blocked / Rejected</p>
+                    <p className="text-[11px] text-rose-500 font-medium">Please review failure reasons and replace corrupted scans.</p>
                     <button
                       onClick={handleSubmitApplication}
                       disabled={isSubmitting}
-                      className="mt-2 w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-60"
+                      className="mt-2 w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition shadow-sm shadow-rose-200 active:scale-[0.98] disabled:opacity-50"
                     >
-                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Resubmit Application
+                      {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Force Resubmit Application
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={handleSubmitApplication}
                     disabled={isSubmitting || completion.uploaded < completion.total}
-                    className="w-full py-3 rounded-2xl bg-[#1D61FF] hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:shadow-none"
+                    className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-transparent text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/10 active:scale-[0.98] disabled:shadow-none"
                   >
                     {isSubmitting ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting files...</>
                     ) : (
-                      <><Send className="h-4 w-4" /> Submit Application</>
+                      <><Send className="h-3.5 w-3.5" /> Submit Application</>
                     )}
                   </button>
                 )}
 
                 {completion.uploaded < completion.total && (
-                  <p className="mt-2 text-center text-xs text-slate-400 font-medium">Upload all {completion.total} required documents to submit</p>
+                  <p className="mt-2.5 text-center text-[10px] text-slate-400 font-semibold tracking-tight">Upload all pending parameters to unlock submission block</p>
                 )}
 
                 {submitMessage && (
-                  <div className={`mt-3 flex items-start gap-2 rounded-xl p-3 text-xs font-semibold ${
-                    submitMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'
-                  }`}>
+                  <div className={cn(
+                    "mt-3 flex items-start gap-2 rounded-xl p-3 text-xs font-semibold border backdrop-blur-xs",
+                    submitMessage.type === 'success' ? 'bg-emerald-50/70 text-emerald-900 border-emerald-100' : 'bg-rose-50/70 text-rose-900 border-rose-100'
+                  )}>
                     {submitMessage.type === 'success'
-                      ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                      : <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />}
-                    {submitMessage.text}
+                      ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 mt-0.5" />
+                      : <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600 mt-0.5" />}
+                    <span className="text-[11px] leading-relaxed tracking-tight">{submitMessage.text}</span>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-xl">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">Verification summary</p>
-              <div className="mt-5 grid grid-cols-3 gap-3">
+            {/* Verification Analytics Breakdown Metadata Board */}
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5.5 text-white shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">AI Audit Metrics</p>
+              
+              <div className="mt-4.5 grid grid-cols-3 gap-2.5">
                 {[
-                  { label: 'Verified', value: summary?.verified ?? summary?.detected ?? 0 },
-                  { label: 'Review', value: summary?.reviewRequired ?? summary?.mismatched ?? 0 },
-                  { label: 'Unknown', value: summary?.unknown ?? 0 },
+                  { label: 'Verified', value: summary?.verified ?? summary?.detected ?? 0, bg: 'bg-white/5 border-white/5 hover:bg-white/10 text-emerald-400' },
+                  { label: 'Review', value: summary?.reviewRequired ?? summary?.mismatched ?? 0, bg: 'bg-white/5 border-white/5 hover:bg-white/10 text-amber-400' },
+                  { label: 'Unknown', value: summary?.unknown ?? 0, bg: 'bg-white/5 border-white/5 hover:bg-white/10 text-slate-400' },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-2xl bg-white/10 p-3 text-center">
-                    <p className="text-2xl font-black">{item.value}</p>
-                    <p className="mt-1 text-[11px] font-semibold text-slate-300">{item.label}</p>
+                  <div key={item.label} className={cn("rounded-xl border p-3 text-center transition", item.bg)}>
+                    <p className="text-2xl font-bold tracking-tight text-white">{item.value}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">
-                {(summary?.tips || ['Use clear scans with readable text.', 'Keep filenames close to the document type.', 'Replace any mismatch before final review.']).map((tip) => (
-                  <p key={tip} className="flex gap-3">
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-blue-300" />
-                    {tip}
-                  </p>
+              
+              <div className="mt-5 space-y-2.5 text-[11px] leading-relaxed text-slate-400 border-t border-slate-800/80 pt-4">
+                {(summary?.tips || ['Use clear flat scans with readable string tokens.', 'Keep metadata structures aligned to framework requirements.', 'Replace flag mismatches prior to final execution audits.']).map((tip) => (
+                  <div key={tip} className="flex gap-2.5 items-start group">
+                    <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500 transition-transform group-hover:translate-x-0.5" />
+                    <span className="font-medium tracking-tight">{tip}</span>
+                  </div>
                 ))}
               </div>
             </div>

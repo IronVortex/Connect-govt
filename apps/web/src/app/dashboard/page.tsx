@@ -2,19 +2,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { ArrowRight, ChevronRight, Car, FileText, Landmark, Users, Info } from 'lucide-react';
+import { ArrowRight, ChevronRight, Car, FileText, Landmark, Users, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../lib/utils';
 import apiClient from '../../services/apiClient';
 import { Department, Service } from '@connect/types';
 import { getServiceDepartmentId } from '../../services/services';
 import { useAuth } from '../../lib/AuthContext';
+import { Alert } from '../../components/ui/Alert';
+import { Button } from '../../components/ui/Button';
 
 const visuals = [
-  { icon: Car, color: 'bg-blue-500' },
-  { icon: FileText, color: 'bg-indigo-500' },
-  { icon: Landmark, color: 'bg-emerald-500' },
-  { icon: Users, color: 'bg-amber-500' },
+  { icon: Car, color: 'bg-blue-500/10 text-blue-600 border-blue-50' },
+  { icon: FileText, color: 'bg-indigo-500/10 text-indigo-600 border-indigo-50' },
+  { icon: Landmark, color: 'bg-emerald-500/10 text-emerald-600 border-emerald-50' },
+  { icon: Users, color: 'bg-amber-500/10 text-amber-600 border-amber-50' },
 ];
 
 export default function DashboardPage() {
@@ -57,74 +59,91 @@ export default function DashboardPage() {
 
   return (
     <PageLayout>
-      <div className="mb-10">
-        <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">Welcome back, {user?.name || 'User'}</h2>
-        <p className="text-slate-500 text-[15px] font-medium mt-1">Select a department to browse available services.</p>
+      <div className="mb-8 space-y-1">
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
+          Welcome back, {user?.name || 'User'}
+        </h2>
+        <p className="text-slate-500 text-xs font-medium">
+          Select an organizational department below to browse or submit official service workflows.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {isLoading ? (
-          <div className="col-span-full rounded-[24px] border border-slate-100 bg-white p-8 text-center text-slate-500">
-            Loading departments...
-          </div>
+          Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="animate-pulse bg-white border border-slate-200/60 rounded-xl p-5 space-y-4">
+              <div className="w-10 h-10 rounded-lg bg-slate-100" />
+              <div className="space-y-2">
+                <div className="h-4 w-2/3 bg-slate-100 rounded" />
+                <div className="h-3 w-1/3 bg-slate-100 rounded" />
+              </div>
+              <div className="pt-2 h-3 w-1/2 bg-slate-50 rounded" />
+            </div>
+          ))
         ) : error ? (
-          <div className="col-span-full rounded-[24px] border border-red-200 bg-red-50 p-8 text-center text-red-700">
-            {error}
+          <div className="col-span-full">
+            <Alert variant="error" title="Data Retrieval Error">{error}</Alert>
           </div>
         ) : (
           departments.map((dept, index) => {
             const visual = visuals[index % visuals.length];
             const Icon = visual.icon;
+            const count = serviceCountByDepartment[dept._id] ?? 0;
 
             return (
               <Link
                 key={dept._id}
                 href={`/departments/${dept._id}`}
-                className="group bg-white rounded-[24px] p-8 border border-slate-100 hover:border-[#1D61FF] hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 relative overflow-hidden"
+                className="group bg-white rounded-xl p-5 border border-slate-200/70 hover:border-blue-500 hover:shadow-sm transition-all duration-150 flex flex-col justify-between"
               >
-                <div
-                  className={cn(
-                    'w-14 h-14 rounded-2xl flex items-center justify-center text-white mb-6 group-hover:scale-110 transition-transform shadow-lg',
-                    visual.color,
-                  )}
-                >
-                  <Icon className="w-7 h-7" />
+                <div>
+                  <div className={cn(
+                    'w-10 h-10 rounded-lg border flex items-center justify-center mb-4 transition-transform duration-150 group-hover:scale-105',
+                    visual.color
+                  )}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight">
+                    {dept.name}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                    {count} {count === 1 ? 'service' : 'services'} ready for submission
+                  </p>
                 </div>
-                <h3 className="text-[20px] font-extrabold text-[#0F172A] group-hover:text-[#1D61FF] transition-colors tracking-tight">{dept.name}</h3>
-                <p className="text-[14px] text-slate-400 mt-1.5 font-medium">
-                  {serviceCountByDepartment[dept._id] ?? 0} Services available
-                </p>
-                <div className="mt-8 flex items-center text-[14px] font-bold text-[#1D61FF]">
-                  View all services
-                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                
+                <div className="mt-6 pt-4 border-t border-slate-50 flex items-center text-xs font-semibold text-blue-600">
+                  <span>Explore workflows</span>
+                  <ChevronRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-0.5 transition-transform duration-150" />
                 </div>
               </Link>
             );
           })
         )}
+
         {!isLoading && !error && departments.length === 0 && (
-          <div className="col-span-full rounded-[24px] border border-slate-100 bg-white p-8 text-center text-slate-500">
-            No departments available yet.
+          <div className="col-span-full text-center py-12 rounded-xl border border-dashed border-slate-200 bg-white">
+            <p className="text-xs font-medium text-slate-400">No organizational divisions currently provisioned.</p>
           </div>
         )}
       </div>
 
-      <div className="mt-16 bg-[#EDF3FF] border border-[#1D61FF]/10 rounded-[24px] p-10 flex items-center justify-between shadow-sm flex-wrap gap-6">
-        <div className="flex gap-6 items-center flex-wrap sm:flex-nowrap">
-          <div className="w-16 h-16 bg-[#1D61FF] rounded-full flex-shrink-0 flex items-center justify-center text-white shadow-xl shadow-[#1D61FF]/20">
-            <Info className="w-8 h-8" />
+      <div className="mt-12 rounded-xl border border-blue-100 bg-blue-50/40 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        <div className="flex gap-4 items-start sm:items-center">
+          <div className="w-10 h-10 bg-blue-600 rounded-lg shrink-0 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+            <HelpCircle className="w-5 h-5" />
           </div>
-          <div>
-            <h3 className="text-[22px] font-extrabold text-[#0F172A] tracking-tight">Not sure where to start?</h3>
-            <p className="text-slate-500 mt-1 text-[15px] max-w-md font-medium">
-              Our guided process helps you find the right government service and required documents in minutes.
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Need assistance navigating portals?</h3>
+            <p className="text-slate-500 text-xs max-w-md font-medium leading-normal">
+              Take our interactive wizard step-by-step to automatically match requirements with corresponding document configurations.
             </p>
           </div>
         </div>
-        <button className="bg-[#1D61FF] text-white px-8 py-4 rounded-2xl font-bold text-[15px] flex items-center gap-3 hover:bg-[#1553DB] transition-all shadow-xl shadow-[#1D61FF]/30 active:scale-[0.98] w-full sm:w-auto justify-center">
-          Get Started Guide
-          <ArrowRight className="w-5 h-5 stroke-[2.5px]" />
-        </button>
+        
+        <Button size="md" className="shrink-0 gap-1.5 self-start sm:self-auto">
+          <span>Get Started Guide</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Button>
       </div>
     </PageLayout>
   );

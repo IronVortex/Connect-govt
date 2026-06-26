@@ -22,28 +22,32 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ label, icon: Icon, hre
       href={href}
       onClick={closeMobile}
       className={cn(
-        "group relative flex items-center rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#1D61FF]/20",
+        "group relative flex items-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/20",
         isCollapsed 
-          ? "justify-center p-3 w-12 h-12 mx-auto" 
-          : "gap-3 px-4 py-3 text-[14px] font-semibold w-full",
+          ? "justify-center h-10 w-10 mx-auto rounded-lg" 
+          : "gap-3 px-3 py-2.5 text-xs font-medium rounded-md w-full",
         isActive 
-          ? "bg-[#1D61FF] text-white shadow-md shadow-[#1D61FF]/10" 
+          ? "bg-blue-50 text-blue-600" 
           : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
       )}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
     >
+
+      {isActive && !isCollapsed && (
+        <span className="absolute left-0 top-2.5 bottom-2.5 w-0.5 rounded-r bg-blue-600" />
+      )}
+
       <Icon className={cn(
-        "w-5 h-5 flex-shrink-0 transition-colors", 
-        isActive ? "text-white" : "text-slate-400 group-hover:text-slate-900"
+        "w-4 h-4 flex-shrink-0 transition-colors duration-150", 
+        isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
       )} />
       
-      {!isCollapsed && <span className="truncate">{label}</span>}
+      {!isCollapsed && <span className="truncate tracking-wide">{label}</span>}
 
       {isCollapsed && (
-        <div className="absolute left-full ml-3 px-3 py-2 bg-slate-950 text-white text-xs font-semibold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg pointer-events-none">
+        <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900 text-white text-[11px] font-medium rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-md pointer-events-none tracking-normal">
           {label}
-          <div className="absolute top-1/2 -translate-y-1/2 right-full w-0 h-0 border-t-4 border-t-transparent border-r-4 border-r-slate-950 border-b-4 border-b-transparent"></div>
         </div>
       )}
     </Link>
