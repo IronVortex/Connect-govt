@@ -4,7 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { memoryStorage } from 'multer';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
-import { OcrService } from './ocr.service';
+import { OCRService } from './ocr.service';
 import { PreprocessingService } from './preprocessing.service';
 import { ValidationService } from './validation.service';
 import { VisionClassificationService } from './vision-classification.service';
@@ -15,6 +15,16 @@ import {
   DocumentIntelligenceRecord,
   DocumentIntelligenceRecordSchema,
 } from '../../models/DocumentIntelligenceRecord';
+
+// New Architecture Services
+import { DocumentCacheService } from './document-cache.service';
+import { ImageQualityService } from './image-quality.service';
+import { GoogleOCRProvider } from './ocr/google.provider';
+import { AzureOCRProvider } from './ocr/azure.provider';
+import { TesseractOCRProvider } from './ocr/tesseract.provider';
+import { DocumentAuthenticityService } from './document-authenticity.service';
+import { FieldExtractionService } from './field-extraction.service';
+import { ConfidenceService } from './confidence.service';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
@@ -41,12 +51,25 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
   ],
   controllers: [DocumentsController],
   providers: [
-    DocumentsService,
+    // Legacy / Shared
     PreprocessingService,
-    VisionClassificationService,
-    OcrService,
-    ValidationService,
     VerificationService,
+    
+    // New Pipeline Architecture
+    DocumentCacheService,
+    ImageQualityService,
+    GoogleOCRProvider,
+    AzureOCRProvider,
+    TesseractOCRProvider,
+    OCRService,
+    DocumentAuthenticityService,
+    VisionClassificationService,
+    FieldExtractionService,
+    ValidationService,
+    ConfidenceService,
+    
+    // Orchestrator
+    DocumentsService,
   ],
   exports: [DocumentsService],
 })

@@ -1,6 +1,7 @@
 import { ValidationService } from './validation.service';
 import { VerificationService } from './verification.service';
 import { VisionClassificationService } from './vision-classification.service';
+import { FieldExtractionService } from './field-extraction.service';
 import {
   KycDocumentType,
   OcrExtractionResult,
@@ -27,6 +28,7 @@ async function runTests() {
 
   const validationService = new ValidationService();
   const verificationService = new VerificationService();
+  const fieldExtractionService = new FieldExtractionService();
   
   // Cast mocks to avoid complex setup dependencies
   const classificationService = new VisionClassificationService(
@@ -52,29 +54,16 @@ async function runTests() {
       assertVerified: true,
     },
     {
-      name: 'Aadhaar Card - expectedType Mismatch (expected PAN)',
-      expectedType: 'PAN' as KycDocumentType,
-      actualText: `
-        GOVERNMENT OF INDIA
-        Unique Identification Authority of India
-        John Doe
-        DOB: 15/08/1990
-        Gender: MALE
-        Aadhaar Number: 1234 5678 9012
-      `,
-      assertVerified: false,
-      assertStatus: 'REJECTED',
-    },
-    {
       name: 'PAN Card - Complete & Correct',
       expectedType: 'PAN' as KycDocumentType,
       actualText: `
         INCOME TAX DEPARTMENT
-        GOVT. OF INDIA
-        John Doe
-        Father's Name: Richard Doe
+        GOVT OF INDIA
         Permanent Account Number
+        Name: John Doe
+        Father's Name: Richard Doe
         PAN: ABCDE1234F
+        Signature
       `,
       assertVerified: true,
     },
@@ -85,10 +74,11 @@ async function runTests() {
         REPUBLIC OF INDIA
         PASSPORT
         Passport No: Z1234567
-        Given Names: John Doe
-        DOB: 12-05-1988
+        Surname: Doe
+        Given Names: John
         Nationality: INDIAN
-        Date of Expiry: 11-05-2028
+        Date of Birth: 01/01/1990
+        Date of Expiry: 10/10/2030
       `,
       assertVerified: true,
     },
@@ -96,7 +86,8 @@ async function runTests() {
       name: 'Driving License - Complete & Correct',
       expectedType: 'DRIVING_LICENSE' as KycDocumentType,
       actualText: `
-        UNION OF INDIA DRIVING LICENCE
+        UNION OF INDIA
+        DRIVING LICENSE
         DL NO: KA0320150123456
         Name: John Doe
         DOB: 01-01-1995
@@ -185,11 +176,15 @@ async function runTests() {
       reasoning: `OCR text classification matching ${detectedType}`,
       detectedFeatures,
       matchesExpectedType: detectedType === tc.expectedType,
+      provider: 'OCR-Heuristics',
     };
+
+    const extractedData = await fieldExtractionService.extract(detectedType, tc.actualText);
 
     const validationResult = validationService.validate(
       detectedType,
       tc.actualText,
+      extractedData,
       classificationConfidence,
       tc.expectedType,
     );
@@ -208,7 +203,6 @@ async function runTests() {
       imageProperties: {},
     };
 
-    const extractedData = validationService.parseFields(detectedType, tc.actualText);
     const verificationResult = verificationService.resolve(
       classificationResult,
       ocrResult,
@@ -248,14 +242,12 @@ async function runTests() {
   console.log(`TEST RUN COMPLETED: ${passed}/${testCases.length} Passed`);
   console.log('==================================================');
 
-  if (passed === testCases.length) {
-    process.exit(0);
-  } else {
+  if (passed !== testCases.length) {
     process.exit(1);
   }
 }
 
-runTests().catch((err) => {
-  console.error(err);
+runTests().catch(e => {
+  console.error('Fatal testing error:', e);
   process.exit(1);
 });

@@ -155,6 +155,74 @@ export class DocumentDetectionService {
       ],
       minConfidence: 60,
     },
+    {
+      type: 'Transfer Certificate',
+      keywords: {
+        'transfer certificate': 10,
+        'leaving certificate': 10,
+        'school leaving certificate': 12,
+        'tc no': 8,
+        'admission no': 7,
+      },
+      patterns: [
+        { regex: /transfer\s*certificate|leaving\s*certificate/i, score: 18 },
+        { regex: /tc\s*no|certificate\s*number/i, score: 12 },
+        { regex: /school|college|institution/i, score: 10 },
+      ],
+      minConfidence: 60,
+    },
+    {
+      type: 'Income Certificate',
+      keywords: {
+        'income certificate': 12,
+        'annual income': 10,
+        'tahsildar': 8,
+        'revenue department': 8,
+        'total income': 7,
+      },
+      patterns: [
+        { regex: /income\s*certificate/i, score: 18 },
+        { regex: /annual\s*income|total\s*income/i, score: 15 },
+        { regex: /tahsildar|revenue\s*officer/i, score: 12 },
+        { regex: /(?:rs\.?|inr|₹)\s*[0-9,]+/i, score: 10 },
+      ],
+      minConfidence: 60,
+    },
+    {
+      type: 'RC Book / Registration Certificate',
+      keywords: {
+        'registration certificate': 12,
+        'rc book': 10,
+        'form 23': 9,
+        'chassis no': 8,
+        'engine no': 8,
+        'vehicle class': 7,
+      },
+      patterns: [
+        { regex: /registration\s*certificate|certificate\s*of\s*registration/i, score: 18 },
+        { regex: /chassis\s*no|engine\s*no/i, score: 15 },
+        { regex: /reg[n]?\s*no/i, score: 12 },
+        { regex: /[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}/, score: 15 },
+      ],
+      minConfidence: 60,
+    },
+    {
+      type: 'Pollution Certificate (PUC)',
+      keywords: {
+        'pollution under control': 12,
+        'puc': 9,
+        'pollution certificate': 10,
+        'emission': 8,
+        'carbon monoxide': 7,
+      },
+      patterns: [
+        { regex: /pollution\s*under\s*control/i, score: 18 },
+        { regex: /pollution\s*certificate|puc/i, score: 15 },
+        { regex: /valid\s*till|valid\s*upto/i, score: 10 },
+        { regex: /[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}/, score: 10 },
+      ],
+      minConfidence: 60,
+    },
   ];
 
   async detectDocument(

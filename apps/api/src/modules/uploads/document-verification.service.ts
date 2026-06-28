@@ -13,6 +13,10 @@ export const DOCUMENT_TYPES = {
   RESUME: 'Resume',
   PASSPORT_PHOTO: 'Passport Size Photo',
   BANK_DOCUMENT: 'Bank Passbook / Bank Statement',
+  TRANSFER_CERTIFICATE: 'Transfer Certificate',
+  INCOME_CERTIFICATE: 'Income Certificate',
+  RC_BOOK: 'RC Book / Registration Certificate',
+  POLLUTION_CERTIFICATE: 'Pollution Certificate (PUC)',
 } as const;
 
 export type SupportedDocumentType = (typeof DOCUMENT_TYPES)[keyof typeof DOCUMENT_TYPES];
@@ -112,6 +116,10 @@ export class DocumentVerificationService {
       { documentType: DOCUMENT_TYPES.RESUME, result: this.verifyResume(context) },
       { documentType: DOCUMENT_TYPES.PASSPORT_PHOTO, result: this.verifyPassportSizePhoto(context) },
       { documentType: DOCUMENT_TYPES.BANK_DOCUMENT, result: this.verifyBankDocument(context) },
+      { documentType: DOCUMENT_TYPES.TRANSFER_CERTIFICATE, result: this.verifyTransferCertificate(context) },
+      { documentType: DOCUMENT_TYPES.INCOME_CERTIFICATE, result: this.verifyIncomeCertificate(context) },
+      { documentType: DOCUMENT_TYPES.RC_BOOK, result: this.verifyRCBook(context) },
+      { documentType: DOCUMENT_TYPES.POLLUTION_CERTIFICATE, result: this.verifyPollutionCertificate(context) },
     ].sort((a, b) => b.result.confidence - a.result.confidence);
 
     const best = candidates[0];
@@ -309,6 +317,62 @@ export class DocumentVerificationService {
     });
   }
 
+  verifyTransferCertificate(context: VerificationContext): ValidatorResult {
+    const extractedFields = {
+      tcIdentifier: this.hasAny(context.lowerText, ['transfer certificate', 'leaving certificate', 'school leaving certificate', 'tc', 'slc']),
+      registrationNumber: this.extractLabeledValue(context.text, ['tc no', 'certificate number', 'reg no', 'admission no']),
+      name: this.extractName(context.text),
+      institution: this.extractLabeledValue(context.text, ['school', 'college', 'institution']) || this.extractCompany(context.text, ['school', 'college']),
+    };
+
+    return this.requiredResult(extractedFields, {
+      tcIdentifier: 'Transfer Certificate identifier',
+      name: 'Name',
+      institution: 'Institution name',
+    });
+  }
+
+  verifyIncomeCertificate(context: VerificationContext): ValidatorResult {
+    const extractedFields = {
+      incomeIdentifier: this.hasAny(context.lowerText, ['income certificate', 'annual income', 'tahsildar']),
+      incomeValue: this.extractLabeledValue(context.text, ['annual income', 'income', 'total income']) || this.firstMatch(context.text, /(?:rs\.?|inr|₹)\s*([0-9,]+)/i),
+      name: this.extractName(context.text),
+    };
+
+    return this.requiredResult(extractedFields, {
+      incomeIdentifier: 'Income Certificate identifier',
+      incomeValue: 'Income value',
+      name: 'Name',
+    });
+  }
+
+  verifyRCBook(context: VerificationContext): ValidatorResult {
+    const extractedFields = {
+      rcIdentifier: this.hasAny(context.lowerText, ['registration certificate', 'rc', 'form 23', 'certificate of registration']),
+      registrationNumber: this.extractLabeledValue(context.text, ['registration no', 'reg no', 'regn no']) || this.firstMatch(context.text, /\b[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}\b/),
+      name: this.extractName(context.text),
+    };
+
+    return this.requiredResult(extractedFields, {
+      rcIdentifier: 'RC Book identifier',
+      registrationNumber: 'Registration Number',
+      name: 'Owner Name',
+    });
+  }
+
+  verifyPollutionCertificate(context: VerificationContext): ValidatorResult {
+    const extractedFields = {
+      pucIdentifier: this.hasAny(context.lowerText, ['pollution under control', 'puc', 'pollution certificate', 'emission']),
+      registrationNumber: this.extractLabeledValue(context.text, ['registration no', 'vehicle no', 'reg no']) || this.firstMatch(context.text, /\b[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}\b/),
+      validity: this.extractLabeledValue(context.text, ['valid till', 'valid upto', 'validity']),
+    };
+
+    return this.requiredResult(extractedFields, {
+      pucIdentifier: 'PUC identifier',
+      registrationNumber: 'Vehicle Registration Number',
+    });
+  }
+
   private normalizeSupportedType(type?: string): SupportedDocumentType | undefined {
     if (!type) return undefined;
     const normalized = this.normalize(type);
@@ -340,6 +404,13 @@ export class DocumentVerificationService {
       bankpassbook: DOCUMENT_TYPES.BANK_DOCUMENT,
       bankstatement: DOCUMENT_TYPES.BANK_DOCUMENT,
       bankpassbookbankstatement: DOCUMENT_TYPES.BANK_DOCUMENT,
+      transfercertificate: DOCUMENT_TYPES.TRANSFER_CERTIFICATE,
+      tc: DOCUMENT_TYPES.TRANSFER_CERTIFICATE,
+      incomecertificate: DOCUMENT_TYPES.INCOME_CERTIFICATE,
+      rcbook: DOCUMENT_TYPES.RC_BOOK,
+      registrationcertificate: DOCUMENT_TYPES.RC_BOOK,
+      pollutioncertificate: DOCUMENT_TYPES.POLLUTION_CERTIFICATE,
+      puc: DOCUMENT_TYPES.POLLUTION_CERTIFICATE,
     };
 
     return aliases[normalized] || Object.values(DOCUMENT_TYPES).find(item => this.normalize(item) === normalized);
@@ -369,12 +440,13 @@ export class DocumentVerificationService {
         return this.verifyInsuranceCertificate(context);
       case DOCUMENT_TYPES.INVOICE:
         return this.verifyInvoice(context);
-      case DOCUMENT_TYPES.RESUME:
-        return this.verifyResume(context);
-      case DOCUMENT_TYPES.PASSPORT_PHOTO:
-        return this.verifyPassportSizePhoto(context);
-      case DOCUMENT_TYPES.BANK_DOCUMENT:
-        return this.verifyBankDocument(context);
+      case DOCUMENT_TYPES.RESUME: return this.verifyResume(context);
+      case DOCUMENT_TYPES.PASSPORT_PHOTO: return this.verifyPassportSizePhoto(context);
+      case DOCUMENT_TYPES.BANK_DOCUMENT: return this.verifyBankDocument(context);
+      case DOCUMENT_TYPES.TRANSFER_CERTIFICATE: return this.verifyTransferCertificate(context);
+      case DOCUMENT_TYPES.INCOME_CERTIFICATE: return this.verifyIncomeCertificate(context);
+      case DOCUMENT_TYPES.RC_BOOK: return this.verifyRCBook(context);
+      case DOCUMENT_TYPES.POLLUTION_CERTIFICATE: return this.verifyPollutionCertificate(context);
       default:
         return { verified: false, confidence: 0, missingFields: ['supported document type'], extractedFields: {} };
     }

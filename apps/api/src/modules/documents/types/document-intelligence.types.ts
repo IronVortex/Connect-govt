@@ -206,6 +206,7 @@ export interface VisionClassificationResult {
   reasoning: string;
   detectedFeatures: string[];
   matchesExpectedType: boolean;
+  provider: string;
 }
 
 export interface DocumentVerificationResult {

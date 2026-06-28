@@ -7,9 +7,10 @@
     "libs/*"
   ],
   "engines": {
-  "node": "20.x"
-},
+    "node": "20.x"
+  },
   "dependencies": {
+    "@google/genai": "^2.10.0",
     "@napi-rs/canvas": "^1.0.0",
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",

@@ -100,18 +100,19 @@ export class VisionClassificationService {
         reasoning: this.buildReasoning(textClassification.type, textClassification.features, textClassification.confidence),
         detectedFeatures: textClassification.features,
         matchesExpectedType,
+        provider: 'OCR-Heuristics',
       };
     }
 
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (apiKey) {
       try {
         const tAiStart = performance.now();
-        const aiResult = await this.classifyWithOpenAI(preprocessed, apiKey, normalizedExpected, ocrText);
+        const aiResult = await this.classifyWithGemini(preprocessed, apiKey, normalizedExpected, ocrText);
         if (aiResult) {
           if (aiResult.documentType === 'UNKNOWN' && textClassification && textClassification.confidence >= 40) {
             this.logger.log(
-              `[CLASSIFICATION] OpenAI returned UNKNOWN but text classifier has moderate confidence (${textClassification.confidence}%). Overriding with ${textClassification.type}`
+              `[CLASSIFICATION] Gemini returned UNKNOWN but text classifier has moderate confidence (${textClassification.confidence}%). Overriding with ${textClassification.type}`
             );
             const matchesExpectedType = typesMatchExpected(textClassification.type, normalizedExpected);
             return {
@@ -121,10 +122,11 @@ export class VisionClassificationService {
               reasoning: this.buildReasoning(textClassification.type, textClassification.features, textClassification.confidence),
               detectedFeatures: textClassification.features,
               matchesExpectedType,
+              provider: 'OCR-Heuristics',
             };
           }
           this.logger.log(
-            `[CLASSIFICATION] OpenAI: ${Math.round(performance.now() - tAiStart)}ms` +
+            `[CLASSIFICATION] Gemini: ${Math.round(performance.now() - tAiStart)}ms` +
             ` - type=${aiResult.documentType} confidence=${aiResult.confidence}`,
           );
           if (aiResult.documentType === 'UNKNOWN') {
@@ -135,7 +137,7 @@ export class VisionClassificationService {
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`[CLASSIFICATION] OpenAI failed, using local fallback: ${message}`);
+        this.logger.warn(`[CLASSIFICATION] Gemini failed, using local fallback: ${message}`);
       }
     }
 
@@ -156,7 +158,7 @@ export class VisionClassificationService {
     return DOCUMENT_TYPE_LABELS[documentType];
   }
 
-  private async classifyWithOpenAI(
+  private async classifyWithGemini(
     image: PreprocessedImage,
     apiKey: string,
     expectedType?: KycDocumentType,
@@ -170,52 +172,57 @@ export class VisionClassificationService {
       ? `\nHere is the OCR text extracted from the document. Use it as the PRIMARY signal to verify the document type:\n"""\n${ocrText.slice(0, 4000)}\n"""`
       : '';
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.configService.get<string>('OPENAI_VISION_MODEL') || 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: CLASSIFICATION_PROMPT + expectedHint + ocrTextHint },
-              { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } },
-            ],
-          },
-        ],
-        max_tokens: 400,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: CLASSIFICATION_PROMPT + expectedHint + ocrTextHint },
+                { inlineData: { mimeType: 'image/png', data: base64 } }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          }
+        }),
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API error ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) return null;
+
+      const parsed = JSON.parse(content) as {
+        documentType?: string;
+        confidence?: number;
+        reasoning?: string;
+        detectedFeatures?: string[];
+      };
+
+      const result = this.normalizeClassificationResult(
+        parsed.documentType,
+        parsed.confidence ?? 0,
+        parsed.reasoning ?? 'AI vision classification',
+        parsed.detectedFeatures ?? [],
+        expectedType,
+      );
+      result.provider = 'Gemini';
+      return result;
+    } catch (e: any) {
+      this.logger.error(`[CLASSIFICATION] Gemini classification failed: ${e.message}`);
+      return null;
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) return null;
-
-    const parsed = JSON.parse(content) as {
-      documentType?: string;
-      confidence?: number;
-      reasoning?: string;
-      detectedFeatures?: string[];
-    };
-
-    return this.normalizeClassificationResult(
-      parsed.documentType,
-      parsed.confidence ?? 0,
-      parsed.reasoning ?? 'AI vision classification',
-      parsed.detectedFeatures ?? [],
-      expectedType,
-    );
   }
 
   private classifyByTextContent(
@@ -394,6 +401,7 @@ export class VisionClassificationService {
       reasoning: `Hard OCR fallback detected ${DOCUMENT_TYPE_LABELS[match.type]}`,
       detectedFeatures: match.features,
       matchesExpectedType: typesMatchExpected(match.type, expectedType),
+      provider: 'OCR-Heuristics',
     };
   }
 
@@ -460,6 +468,7 @@ export class VisionClassificationService {
       reasoning: this.buildReasoning(documentType, best.features, confidence),
       detectedFeatures: best.features,
       matchesExpectedType,
+      provider: 'Local-Visual-Heuristics',
     };
   }
 
@@ -867,6 +876,7 @@ export class VisionClassificationService {
       reasoning,
       detectedFeatures,
       matchesExpectedType: typesMatchExpected(documentType, expectedType),
+      provider: 'Unknown', // Will be overridden
     };
   }
 
