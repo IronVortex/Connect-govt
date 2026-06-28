@@ -3,7 +3,8 @@ import sharp from 'sharp';
 
 export interface AuthenticityResult {
   isAuthentic: boolean;
-  confidence: number;
+  score: number;
+  rating: 'Excellent' | 'Good' | 'Fair' | 'Poor';
   reason: string;
 }
 
@@ -11,16 +12,17 @@ export interface AuthenticityResult {
 export class DocumentAuthenticityService {
   private readonly logger = new Logger(DocumentAuthenticityService.name);
 
-  async analyze(buffer: Buffer, ocrText: string, mimeType?: string): Promise<AuthenticityResult> {
+  async analyze(buffer: Buffer, ocrText: string, mimeType?: string, expectedType?: string): Promise<AuthenticityResult> {
     const tStart = performance.now();
     this.logger.log(`[Layer 2.5] Starting Document Authenticity Detection`);
 
     if (mimeType === 'application/pdf') {
-      // PDFs are generally documents, we assume authentic structure unless OCR is totally empty
+      const isAuthentic = ocrText.trim().length > 10;
       return {
-        isAuthentic: ocrText.length > 50,
-        confidence: ocrText.length > 50 ? 90 : 30,
-        reason: ocrText.length > 50 ? 'Valid PDF document with text' : 'PDF contains no extractable text',
+        isAuthentic,
+        score: isAuthentic ? 95 : 20,
+        rating: isAuthentic ? 'Excellent' : 'Poor',
+        reason: isAuthentic ? 'Valid PDF document containing text' : 'PDF contains no readable text',
       };
     }
 
@@ -35,63 +37,87 @@ export class DocumentAuthenticityService {
       // Calculate text density (characters per 10,000 pixels)
       const textDensity = (textLength / area) * 10000;
       
-      let confidence = 50;
+      let score = 50;
       let reasons: string[] = [];
-      let isAuthentic = true;
 
-      // Rule 1: Text presence
-      if (textLength < 20) {
-        confidence -= 30;
-        reasons.push('Very little or no text detected');
-      } else if (textLength > 150) {
-        confidence += 20;
-        reasons.push('High text density typical of documents');
+      // 1. Text presence and density checks
+      if (textLength === 0) {
+        score -= 40;
+        reasons.push('No readable text found');
+      } else if (textLength < 20) {
+        score -= 20;
+        reasons.push('Very low text density');
+      } else if (textDensity > 100) {
+        score += 20;
+        reasons.push('High text density');
+      } else {
+        score += 10;
+        reasons.push('Moderate text density');
       }
 
-      // Rule 2: Image dimensions (documents are rarely perfectly square, usually ID card or A4 aspect ratio)
+      // 2. Aspect Ratio / Dimensions
       const aspect = width / height;
       const isA4 = (aspect >= 0.65 && aspect <= 0.75) || (aspect >= 1.35 && aspect <= 1.55);
       const isIDCard = (aspect >= 1.5 && aspect <= 1.8) || (aspect >= 0.55 && aspect <= 0.66);
       
       if (isA4 || isIDCard) {
-        confidence += 15;
-        reasons.push('Standard document aspect ratio detected');
+        score += 15;
+        reasons.push('Standard document aspect ratio');
       } else if (aspect >= 0.9 && aspect <= 1.1) {
-        // Perfect squares are often profile pictures or random crops, not documents
-        confidence -= 10;
-        reasons.push('Square aspect ratio is unusual for documents');
+        // Perfect squares are less common for documents
+        score -= 10;
+        reasons.push('Square aspect ratio (atypical for documents)');
       }
-      
-      // Rule 3: Official keywords (Govt, Republic, Department)
+
+      // 3. Official Keywords
       const lowerText = ocrText.toLowerCase();
-      const officialKeywords = ['government', 'republic', 'department', 'authority', 'ministry', 'state', 'india', 'tax', 'certificate'];
+      const officialKeywords = ['government', 'republic', 'department', 'authority', 'ministry', 'state', 'india', 'tax', 'certificate', 'card'];
       const matchedKeywords = officialKeywords.filter(k => lowerText.includes(k));
-      
       if (matchedKeywords.length > 0) {
-        confidence += 20;
-        reasons.push(`Official keywords found (${matchedKeywords.length})`);
+        score += 15;
+        reasons.push(`Official keywords matched`);
       }
 
-      // Final decision
-      confidence = Math.min(100, Math.max(0, confidence));
-      isAuthentic = confidence >= 40;
+      // 4. Blank Image check using stats
+      const stats = await sharp(buffer).stats();
+      const stdev = stats.channels.length > 0 ? stats.channels[0].stdev : 0;
+      if (stdev < 5) {
+        score = 0;
+        reasons = ['Unusable blank or solid color image'];
+      }
 
-      const reason = reasons.length > 0 ? reasons.join('. ') : 'Standard image properties';
+      // Allow selfies/portraits if expected type is passport size photo
+      if (expectedType === 'PASSPORT_PHOTO' && textLength < 10) {
+        score = Math.max(score, 75); // override low text penalty for photos
+        reasons.push('Valid visual characteristics for passport photo');
+      }
+
+      score = Math.min(100, Math.max(0, score));
       
-      this.logger.log(`[Layer 2.5] Authenticity: ${isAuthentic} (confidence: ${confidence}%) - ${Math.round(performance.now() - tStart)}ms`);
+      let rating: 'Excellent' | 'Good' | 'Fair' | 'Poor' = 'Fair';
+      if (score >= 85) rating = 'Excellent';
+      else if (score >= 65) rating = 'Good';
+      else if (score >= 35) rating = 'Fair';
+      else rating = 'Poor';
+
+      // Only reject completely unusable uploads
+      const isAuthentic = score >= 15;
+
+      this.logger.log(`[Layer 2.5] Authenticity Score: ${score} (${rating}) - isAuthentic: ${isAuthentic}`);
 
       return {
         isAuthentic,
-        confidence,
-        reason,
+        score,
+        rating,
+        reason: reasons.join(', '),
       };
     } catch (error: any) {
       this.logger.error(`[Layer 2.5] Analysis failed: ${error.message}`);
-      // Fail open if image processing fails
       return {
         isAuthentic: true,
-        confidence: 50,
-        reason: 'Error analyzing authenticity, falling back to assuming authentic',
+        score: 50,
+        rating: 'Fair',
+        reason: 'Unable to analyze image authenticity, processing anyway',
       };
     }
   }

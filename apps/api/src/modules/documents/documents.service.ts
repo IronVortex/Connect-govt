@@ -121,32 +121,24 @@ export class DocumentsService {
     const ocrResult = await this.ocrService.extractText(buffer, mimeType);
     timings.ocr = Math.round(performance.now() - tOcr);
 
-    // Layer 2.5: Document Authenticity
+    // Layer 2.5: Document Authenticity (score-only, does NOT block classification)
     const authenticityResult = await this.authenticityService.analyze(buffer, ocrResult.text, mimeType);
-
-    // Layer 3: Document Classification
-    const tClass = performance.now();
-    let documentType: KycDocumentType = 'UNKNOWN';
-    let classConfidence = 0;
-    let classificationReasoning = '';
-    let classificationProvider = 'None';
-    
     if (!authenticityResult.isAuthentic) {
-      this.logger.warn(`[Pipeline] Document rejected by Authenticity Layer: ${authenticityResult.reason}`);
-      documentType = 'UNKNOWN';
-      classificationReasoning = authenticityResult.reason;
-    } else {
-      const classification = await this.visionClassificationService.classify(
-        buffer,
-        mimeType,
-        expectedDocumentType,
-        ocrResult.text
-      );
-      documentType = classification.documentType;
-      classConfidence = classification.confidence;
-      classificationReasoning = classification.reasoning;
-      classificationProvider = (classification as any).provider || 'Local';
+      this.logger.warn(`[Pipeline] Authenticity concern: ${authenticityResult.reason} (score=${authenticityResult.score})`);
     }
+
+    // Layer 3: Document Classification (always runs regardless of authenticity)
+    const tClass = performance.now();
+    const classification = await this.visionClassificationService.classify(
+      buffer,
+      mimeType,
+      expectedDocumentType,
+      ocrResult.text
+    );
+    const documentType: KycDocumentType = classification.documentType;
+    const classConfidence = classification.confidence;
+    const classificationReasoning = classification.reasoning;
+    const classificationProvider = (classification as any).provider || 'Local';
     timings.classification = Math.round(performance.now() - tClass);
 
     // Layer 4: Field Extraction
@@ -170,6 +162,7 @@ export class DocumentsService {
         ocr: ocrResult.confidence,
         classification: classConfidence,
         validation: validationResult.score,
+        authenticity: authenticityResult.score ?? 100,
       },
       documentType,
       normalizedExpected

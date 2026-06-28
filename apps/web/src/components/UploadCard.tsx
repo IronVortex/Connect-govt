@@ -59,13 +59,22 @@ function getExtractedFieldEntries(fields?: Record<string, unknown>): Array<[stri
     });
 }
 
-function getUploadStage(progress: number) {
-  if (progress < 15) return 'Preparing upload';
-  if (progress < 55) return 'Uploading file';
-  if (progress < 75) return 'AI scanning';
-  if (progress < 95) return 'Verification in progress';
-  return 'Finalizing result';
+function getUploadStage(progress: number): { label: string; stageIndex: number } {
+  if (progress < 15) return { label: 'Preparing upload', stageIndex: -1 };
+  if (progress < 40) return { label: 'Uploading file', stageIndex: -1 };
+  if (progress < 58) return { label: 'Image quality analysis', stageIndex: 0 };
+  if (progress < 72) return { label: 'OCR text extraction', stageIndex: 1 };
+  if (progress < 86) return { label: 'AI document classification', stageIndex: 2 };
+  if (progress < 97) return { label: 'Field validation', stageIndex: 3 };
+  return { label: 'Finalizing result', stageIndex: 3 };
 }
+
+const PIPELINE_STAGES = [
+  { id: 'image', label: 'Image Analysis', description: 'Blur, brightness, contrast' },
+  { id: 'ocr', label: 'OCR Extraction', description: 'Text & field detection' },
+  { id: 'classify', label: 'Classification', description: 'AI document type detection' },
+  { id: 'validate', label: 'Validation', description: 'Field & authenticity check' },
+] as const;
 
 export const UploadCard: React.FC<UploadCardProps> = ({
   document,
@@ -227,7 +236,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
               {progress}% complete
             </span>
             <span className="text-blue-700 bg-blue-50/60 border border-blue-100/40 px-2 py-0.5 rounded-md font-semibold">
-              {getUploadStage(progress)}
+              {getUploadStage(progress).label}
             </span>
           </div>
 
@@ -236,6 +245,42 @@ export const UploadCard: React.FC<UploadCardProps> = ({
               {state.tone === 'error' ? <AlertCircle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
               {state.message}
             </p>
+          )}
+
+          {/* Pipeline Verification Timeline */}
+          {isUploading && (
+            <div className="mt-4 rounded-lg border border-blue-100/60 bg-blue-50/40 p-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-3">Verification Pipeline</p>
+              <div className="space-y-2.5">
+                {PIPELINE_STAGES.map((stage, idx) => {
+                  const { stageIndex } = getUploadStage(progress);
+                  const isActive = stageIndex === idx;
+                  const isDone = stageIndex > idx;
+                  return (
+                    <div key={stage.id} className="flex items-center gap-2.5">
+                      <div className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-all duration-300',
+                        isDone ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' :
+                        isActive ? 'bg-blue-600 text-white shadow-sm shadow-blue-200' :
+                        'bg-slate-100 text-slate-400 border border-slate-200'
+                      )}>
+                        {isDone ? <CheckCircle2 className="h-3 w-3" /> : idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className={cn(
+                            'text-xs font-semibold transition-colors duration-200',
+                            isDone ? 'text-emerald-700' : isActive ? 'text-blue-700' : 'text-slate-400'
+                          )}>{stage.label}</p>
+                          {isActive && <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />}
+                        </div>
+                        <p className="text-[10px] text-slate-400">{stage.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* Extracted Analytics Block */}
@@ -247,10 +292,19 @@ export const UploadCard: React.FC<UploadCardProps> = ({
                   <p className="mt-0.5 text-xs font-semibold text-slate-900 truncate">{detectedType}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Confidence</p>
-                  <p className="mt-0.5 text-xs font-semibold text-slate-900">
-                    {confidence !== undefined ? `${confidence}%` : '—'}
-                  </p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">AI Confidence</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          confidence >= 75 ? 'bg-emerald-500' : confidence >= 45 ? 'bg-amber-400' : 'bg-red-400'
+                        )}
+                        style={{ width: `${confidence}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 shrink-0">{confidence}%</span>
+                  </div>
                 </div>
               </div>
 
@@ -270,7 +324,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
 
               {validationReasons.length > 0 && (
                 <div className="border-t border-slate-50 pt-2.5">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1.5">System Verification Checks</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1.5">Verification Checks</p>
                   <ul className="space-y-1">
                     {validationReasons.map((reason, idx) => {
                       const isPass = /detected|verified|passed|present/i.test(reason);
