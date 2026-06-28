@@ -146,32 +146,32 @@ function AppCard({
   const canDelete = app.status === 'DRAFT';
 
   return (
-    <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm shadow-slate-200/40 hover:border-[#1D61FF]/20 hover:shadow-md transition-all duration-200 flex flex-col gap-4">
+    <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-100 dark:border-slate-800 p-6 shadow-sm shadow-slate-200/40 hover:border-blue-500/30 dark:hover:border-blue-500/20 hover:shadow-md transition-all duration-200 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#F0F5FF] flex items-center justify-center text-[#1D61FF] shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#F0F5FF] dark:bg-blue-950/30 flex items-center justify-center text-[#1D61FF] shrink-0">
             <Briefcase className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[15px] font-bold text-[#0F172A] leading-snug">{getServiceName(app)}</p>
-            <p className="text-xs text-slate-400 mt-0.5 font-mono">{app.appId}</p>
+            <p className="text-[15px] font-bold text-slate-900 dark:text-white leading-snug">{getServiceName(app)}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-mono">{app.appId}</p>
           </div>
         </div>
         <StatusBadge status={app.status} />
       </div>
 
-      <p className="text-xs text-slate-500 font-medium leading-relaxed">{cfg.description}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{cfg.description}</p>
 
       <Timeline status={app.status} />
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-slate-50 rounded-xl p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Created</p>
-          <p className="text-xs font-semibold text-slate-700 mt-1">{formatDate(app.createdAt)}</p>
+        <div className="bg-slate-50 dark:bg-slate-950 rounded-xl p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Created</p>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-1">{formatDate(app.createdAt)}</p>
         </div>
-        <div className="bg-slate-50 rounded-xl p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-700 mt-1">{formatDate(app.updatedAt)}</p>
+        <div className="bg-slate-50 dark:bg-slate-950 rounded-xl p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Last Updated</p>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-1">{formatDate(app.updatedAt)}</p>
         </div>
       </div>
 
@@ -179,7 +179,7 @@ function AppCard({
         {serviceId && (
           <Link
             href={`/service-detail/${serviceId}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Open workflow
@@ -285,27 +285,29 @@ export default function ApplicationsPage() {
     <PageLayout>
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold border ${
-          toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-800' : 'bg-white border-red-100 text-red-700'
+          toast.type === 'success' 
+            ? 'bg-white dark:bg-slate-900 border-emerald-100 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400' 
+            : 'bg-white dark:bg-slate-900 border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-400'
         }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-red-500" />}
+          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <XCircle className="w-4 h-4 text-red-500" />}
           {toast.text}
         </div>
       )}
 
           <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-[32px] font-extrabold text-[#0F172A] tracking-tight leading-tight">
-                My Applications
-              </h2>
-              <p className="text-slate-500 text-[15px] font-medium mt-1">
-                Track and manage your government service applications.
-              </p>
+              <h2 className="text-[32px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+              My Applications
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-[15px] font-medium mt-1">
+              Track and manage your government service applications.
+            </p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={fetchApplications}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 bg-white rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
@@ -323,13 +325,13 @@ export default function ApplicationsPage() {
           {/* stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
             {statItems.map((s) => (
-              <div key={s.label} className="bg-white rounded-[20px] border border-slate-100 p-6 shadow-sm flex items-center gap-4">
+              <div key={s.label} className="bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl ${s.bg} flex items-center justify-center shrink-0`}>
                   <Hash className={`w-5 h-5 ${s.color}`} />
                 </div>
                 <div>
                   <p className={`text-[28px] font-extrabold leading-none ${s.color}`}>{s.value}</p>
-                  <p className="text-xs font-semibold text-slate-400 mt-1">{s.label}</p>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-1">{s.label}</p>
                 </div>
               </div>
             ))}
@@ -338,33 +340,33 @@ export default function ApplicationsPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-[24px] border border-slate-100 p-6 h-72 animate-pulse">
+                <div key={i} className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-100 dark:border-slate-800 p-6 h-72 animate-pulse">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100" />
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
-                      <div className="h-3 bg-slate-100 rounded-lg w-1/2" />
+                      <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-lg w-3/4" />
+                      <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-lg w-1/2" />
                     </div>
                   </div>
                   <div className="space-y-3 mt-6">
                     {Array.from({ length: 3 }).map((_, j) => (
-                      <div key={j} className="h-8 bg-slate-50 rounded-xl" />
+                      <div key={j} className="h-8 bg-slate-50 dark:bg-slate-800 rounded-xl" />
                     ))}
                   </div>
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className="rounded-[24px] border border-red-200 bg-red-50 p-10 text-center text-red-700 font-semibold">
+            <div className="rounded-[24px] border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/10 p-10 text-center text-red-700 dark:text-red-400 font-semibold">
               {error}
             </div>
           ) : applications.length === 0 ? (
-            <div className="rounded-[32px] border border-slate-100 bg-white p-16 flex flex-col items-center text-center shadow-sm">
-              <div className="w-20 h-20 rounded-full bg-[#F0F5FF] flex items-center justify-center mb-6">
+            <div className="rounded-[32px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-16 flex flex-col items-center text-center shadow-sm">
+              <div className="w-20 h-20 rounded-full bg-[#F0F5FF] dark:bg-blue-950/30 flex items-center justify-center mb-6">
                 <Briefcase className="w-10 h-10 text-[#1D61FF]" />
               </div>
-              <h3 className="text-xl font-extrabold text-[#0F172A]">No applications yet</h3>
-              <p className="text-slate-500 text-sm mt-2 max-w-sm font-medium">
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">No applications yet</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-sm font-medium">
                 Browse a service, upload your documents, and click{' '}
                 <strong>Submit Application</strong> to start.
               </p>
@@ -381,7 +383,7 @@ export default function ApplicationsPage() {
             
               {active.length > 0 && (
                 <section>
-                  <h3 className="text-lg font-extrabold text-[#0F172A] mb-5">
+                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-5">
                     Active Applications
                     <span className="ml-2 bg-[#1D61FF] text-white text-xs font-bold px-2.5 py-0.5 rounded-full">{active.length}</span>
                   </h3>
@@ -401,9 +403,9 @@ export default function ApplicationsPage() {
 
               {completed.length > 0 && (
                 <section>
-                  <h3 className="text-lg font-extrabold text-[#0F172A] mb-5">
+                  <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-5">
                     Completed
-                    <span className="ml-2 bg-slate-200 text-slate-600 text-xs font-bold px-2.5 py-0.5 rounded-full">{completed.length}</span>
+                    <span className="ml-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2.5 py-0.5 rounded-full">{completed.length}</span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {completed.map((app) => (

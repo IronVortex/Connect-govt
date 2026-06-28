@@ -60,10 +60,10 @@ export default function DashboardPage() {
   return (
     <PageLayout>
       <div className="mb-8 space-y-1">
-        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">
           Welcome back, {user?.name || 'User'}
         </h2>
-        <p className="text-slate-500 text-xs font-medium">
+        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
           Select an organizational department below to browse or submit official service workflows.
         </p>
       </div>
@@ -71,13 +71,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="animate-pulse bg-white border border-slate-200/60 rounded-xl p-5 space-y-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100" />
+            <div key={idx} className="animate-pulse bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-xl p-5 space-y-4">
+              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800" />
               <div className="space-y-2">
-                <div className="h-4 w-2/3 bg-slate-100 rounded" />
-                <div className="h-3 w-1/3 bg-slate-100 rounded" />
+                <div className="h-4 w-2/3 bg-slate-100 dark:bg-slate-800 rounded" />
+                <div className="h-3 w-1/3 bg-slate-100 dark:bg-slate-800 rounded" />
               </div>
-              <div className="pt-2 h-3 w-1/2 bg-slate-50 rounded" />
+              <div className="pt-2 h-3 w-1/2 bg-slate-50 dark:bg-slate-800 rounded" />
             </div>
           ))
         ) : error ? (
@@ -94,7 +94,7 @@ export default function DashboardPage() {
               <Link
                 key={dept._id}
                 href={`/departments/${dept._id}`}
-                className="group bg-white rounded-xl p-5 border border-slate-200/70 hover:border-blue-500 hover:shadow-sm transition-all duration-150 flex flex-col justify-between"
+                className="group bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200/70 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-600 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   <div className={cn(
@@ -103,15 +103,15 @@ export default function DashboardPage() {
                   )}>
                     <Icon className="w-4 h-4" />
                   </div>
-                  <h3 className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors tracking-tight">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors tracking-tight">
                     {dept.name}
                   </h3>
-                  <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 font-medium">
                     {count} {count === 1 ? 'service' : 'services'} ready for submission
                   </p>
                 </div>
                 
-                <div className="mt-6 pt-4 border-t border-slate-50 flex items-center text-xs font-semibold text-blue-600">
+                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center text-xs font-semibold text-blue-600 dark:text-blue-400">
                   <span>Explore workflows</span>
                   <ChevronRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-0.5 transition-transform duration-150" />
                 </div>
@@ -121,20 +121,20 @@ export default function DashboardPage() {
         )}
 
         {!isLoading && !error && departments.length === 0 && (
-          <div className="col-span-full text-center py-12 rounded-xl border border-dashed border-slate-200 bg-white">
-            <p className="text-xs font-medium text-slate-400">No organizational divisions currently provisioned.</p>
+          <div className="col-span-full text-center py-12 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">No organizational divisions currently provisioned.</p>
           </div>
         )}
       </div>
 
-      <div className="mt-12 rounded-xl border border-blue-100 bg-blue-50/40 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+      <div className="mt-12 rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/40 dark:bg-blue-950/20 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="flex gap-4 items-start sm:items-center">
           <div className="w-10 h-10 bg-blue-600 rounded-lg shrink-0 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
             <HelpCircle className="w-5 h-5" />
           </div>
           <div className="space-y-0.5">
-            <h3 className="text-sm font-semibold text-slate-900 tracking-tight">Need assistance navigating portals?</h3>
-            <p className="text-slate-500 text-xs max-w-md font-medium leading-normal">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">Need assistance navigating portals?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md font-medium leading-normal">
               Take our interactive wizard step-by-step to automatically match requirements with corresponding document configurations.
             </p>
           </div>
