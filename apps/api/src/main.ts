@@ -5,12 +5,16 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
+import helmet from 'helmet';
+import compression from 'compression';
+import { noSqlInjectionSanitizer, xssSanitizer } from './config/security.middleware';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { logger } from './logger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.enableShutdownHooks();
   const loggerContext = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
   const port = Number(configService.get<string>('PORT') || 3001);
@@ -54,8 +58,12 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
+  app.use(helmet());
+  app.use(compression());
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ limit: '10mb', extended: true }));
+  app.use(noSqlInjectionSanitizer);
+  app.use(xssSanitizer);
   app.use(cookieParser());
   app.use(
     pinoHttp({

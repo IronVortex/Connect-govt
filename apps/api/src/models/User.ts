@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
 export type UserDocument = HydratedDocument<User>;
-export const USER_ROLES = ['user', 'admin', 'department_officer'] as const;
+export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 @Schema({
@@ -81,6 +81,15 @@ export class User {
     index: true,
   })
   role!: UserRole;
+
+  @Prop({
+    type: String,
+    enum: ['active', 'suspended'],
+    default: 'active',
+    required: true,
+    index: true,
+  })
+  status!: 'active' | 'suspended';
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

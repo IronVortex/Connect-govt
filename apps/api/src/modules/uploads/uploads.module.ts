@@ -11,6 +11,9 @@ import { memoryStorage } from 'multer';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
+import { AuthModule } from '../auth/auth.module';
+import { AuditModule } from '../audit/audit.module';
+
 @Module({
   imports: [
     DocumentsModule,
@@ -32,6 +35,8 @@ const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
       { name: RequiredDocument.name, schema: RequiredDocumentSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    AuthModule,
+    AuditModule,
   ],
   controllers: [UploadsController],
   providers: [UploadsService],

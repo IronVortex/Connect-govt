@@ -105,7 +105,26 @@ export class UsersService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-    // We could soft-delete or hard-delete here. For now, hard delete.
     await this.userModel.findByIdAndDelete(userId).exec();
+  }
+
+  async updateStatus(userId: string, status: 'active' | 'suspended'): Promise<User> {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    user.status = status;
+    await user.save();
+    return user;
+  }
+
+  async updateRole(userId: string, role: 'user' | 'admin'): Promise<User> {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    user.role = role;
+    await user.save();
+    return user;
   }
 }

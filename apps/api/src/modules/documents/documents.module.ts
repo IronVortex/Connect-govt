@@ -25,11 +25,13 @@ import { TesseractOCRProvider } from './ocr/tesseract.provider';
 import { DocumentAuthenticityService } from './document-authenticity.service';
 import { FieldExtractionService } from './field-extraction.service';
 import { ConfidenceService } from './confidence.service';
+import { AuthModule } from '../auth/auth.module';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
 @Module({
   imports: [
+    AuthModule,
     MulterModule.register({
       storage: memoryStorage(),
       fileFilter: (_req, file, cb) => {

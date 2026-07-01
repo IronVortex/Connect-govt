@@ -14,32 +14,38 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { PermissionsGuard, RequirePermissions } from '../auth/permissions.guard';
+import { Roles } from '../auth/roles.decorator';
 
 const ALLOWED_MIME_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 @Controller('documents')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DocumentsController {
   constructor(@Inject(DocumentsService) private documentsService: DocumentsService) {}
 
   @Get()
+  @RequirePermissions('read:services')
   findAll() {
     return this.documentsService.findAll();
   }
 
   @Get('service/:serviceId')
+  @RequirePermissions('read:services')
   findByService(@Param('serviceId') serviceId: string) {
     return this.documentsService.findByService(serviceId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('intelligence/me')
+  @RequirePermissions('upload:documents')
   findMyIntelligence(@Req() req: { user: { id: string } }) {
     return this.documentsService.findIntelligenceByUser(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('verify')
+  @RequirePermissions('upload:documents')
   @UseInterceptors(FileInterceptor('file'))
   async verifyDocument(
     @UploadedFile() file: Express.Multer.File,
@@ -59,11 +65,15 @@ export class DocumentsController {
   }
 
   @Get(':id')
+  @RequirePermissions('read:services')
   findOne(@Param('id') id: string) {
     return this.documentsService.findOne(id);
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @RequirePermissions('manage:documents')
   create(
     @Body()
     body: {

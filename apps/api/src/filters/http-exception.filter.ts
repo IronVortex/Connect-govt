@@ -7,6 +7,15 @@ import {
 } from '@nestjs/common';
 import { logger } from '../logger';
 
+interface ErrorResponseBody {
+  success: false;
+  statusCode: number;
+  message: string;
+  errors?: string[];
+  timestamp: string;
+  path: string;
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
@@ -24,20 +33,33 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
 
-    const message =
+    // Extract message — NestJS ValidationPipe returns { message: string[] }
+    let message: string;
+    let errors: string[] | undefined;
+
+    if (
       typeof exceptionResponse === 'object' &&
       exceptionResponse !== null &&
       'message' in exceptionResponse
-        ? (exceptionResponse as { message: string | string[] }).message
-        : exception instanceof Error
-          ? exception.message
-          : 'Internal server error';
+    ) {
+      const rawMessage = (exceptionResponse as { message: string | string[] }).message;
+      if (Array.isArray(rawMessage)) {
+        errors = rawMessage;
+        message = rawMessage[0] ?? 'Validation failed';
+      } else {
+        message = rawMessage;
+      }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+    } else {
+      message = 'Internal server error';
+    }
 
     const payload = {
       method: request.method || 'REQUEST',
       path: request.url || '',
       status,
-      message: Array.isArray(message) ? message.join(', ') : message,
+      message,
       headers: {
         origin: request.headers?.origin,
         host: request.headers?.host,
@@ -50,11 +72,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
       logger.warn(payload);
     }
 
-    response.status(status).json({
+    const body: ErrorResponseBody = {
+      success: false,
       statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
       message,
-    });
+      timestamp: new Date().toISOString(),
+      path: request.url ?? '',
+    };
+
+    if (errors && errors.length > 0) {
+      body.errors = errors;
+    }
+
+    response.status(status).json(body);
   }
 }

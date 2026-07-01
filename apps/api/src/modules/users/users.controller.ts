@@ -1,6 +1,8 @@
-import { Controller, Get, Put, Body, UseGuards, Request, Inject, Delete } from '@nestjs/common';
+import { Controller, Get, Put, Body, UseGuards, Request, Inject, Delete, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -56,6 +58,42 @@ export class UsersController {
   @Delete('profile')
   async deleteAccount(@Request() req: any) {
     await this.usersService.deleteAccount(req.user.id);
+    return { success: true };
+  }
+
+  // ── Admin-only management endpoints ─────────────────────────────────────
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get()
+  async getAllUsers() {
+    return this.usersService.findAll();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Put(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'active' | 'suspended' },
+  ) {
+    return this.usersService.updateStatus(id, body.status);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Put(':id/role')
+  async updateRole(
+    @Param('id') id: string,
+    @Body() body: { role: 'user' | 'admin' },
+  ) {
+    return this.usersService.updateRole(id, body.role);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Delete(':id')
+  async adminDeleteUser(@Param('id') id: string) {
+    await this.usersService.deleteAccount(id);
     return { success: true };
   }
 }

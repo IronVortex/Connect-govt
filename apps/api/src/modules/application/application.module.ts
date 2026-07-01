@@ -7,9 +7,13 @@ import { RequiredDocument, RequiredDocumentSchema } from '../../models/RequiredD
 import { User, UserSchema } from '../../models/User';
 import { Application, ApplicationSchema } from '../../models/Application';
 import { Service, ServiceSchema } from '../../models/Service';
+import { AuthModule } from '../auth/auth.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
+    AuthModule,
+    AuditModule,
     MongooseModule.forFeature([
       { name: UploadedDocument.name, schema: UploadedDocumentSchema },
       { name: RequiredDocument.name, schema: RequiredDocumentSchema },

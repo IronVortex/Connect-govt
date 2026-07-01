@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+  mongo:
+    image: mongo:7.0-jammy
+    container_name: connect_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB:-connect-govt}
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - connect_net
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: connect_api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-changeme}@mongo:27017/${MONGODB_DB:-connect-govt}?authSource=admin
+      MONGODB_DB: ${MONGODB_DB:-connect-govt}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      ENABLE_LOCAL_FALLBACK: ${ENABLE_LOCAL_FALLBACK:-true}
+      CACHE_ENABLED: ${CACHE_ENABLED:-true}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-80}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
+    ports:
+      - '3001:3001'
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - connect_net
+
+  # ── Next.js Web Frontend ───────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: connect_web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+    ports:
+      - '3000:3000'
+    networks:
+      - connect_net
+
+volumes:
+  mongo_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  connect_net:
+    driver: bridge

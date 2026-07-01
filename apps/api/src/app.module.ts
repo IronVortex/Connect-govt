@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { TransformInterceptor } from './filters/transform.interceptor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { envValidationSchema } from './config/env.validation';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -16,12 +18,14 @@ import { Service, ServiceSchema } from './models/Service';
 import { RequiredDocument, RequiredDocumentSchema } from './models/RequiredDocument';
 import { Application, ApplicationSchema } from './models/Application';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['apps/api/.env', '.env'],
+      validationSchema: envValidationSchema,
     }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
@@ -59,6 +63,7 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
     DocumentsModule,
     UploadsModule,
     ApplicationModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [
@@ -66,6 +71,10 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
     },
   ],
 })

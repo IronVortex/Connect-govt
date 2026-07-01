@@ -8,11 +8,13 @@ import {
   Res,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { IsEmail, IsString, MinLength } from 'class-validator';
+import { Audit, AuditInterceptor } from '../audit/audit.interceptor';
 
 const refreshTokenCookieOptions = {
   httpOnly: true,
@@ -48,6 +50,8 @@ export class AuthController {
   constructor(@Inject(AuthService) private authService: AuthService) {}
 
   @Post('register')
+  @UseInterceptors(AuditInterceptor)
+  @Audit({ action: 'REGISTRATION', module: 'AUTH' })
   async register(@Body() body: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.authService.register(body.email, body.password, body.name);
     const loginResponse = await this.authService.login(user);
@@ -56,6 +60,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseInterceptors(AuditInterceptor)
+  @Audit({ action: 'LOGIN', module: 'AUTH' })
   async login(
     @Body() body: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -85,6 +91,8 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(AuditInterceptor)
+  @Audit({ action: 'LOGOUT', module: 'AUTH' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout((req.user as any).id);
     res.clearCookie('refresh_token', {
@@ -93,12 +101,5 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
-    return { success: true };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  getProfile(@Req() req: any) {
-    return req.user;
   }
 }

@@ -16,6 +16,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { PermissionsGuard, RequirePermissions } from '../auth/permissions.guard';
+import { OwnershipGuard, CheckOwnership } from '../auth/ownership.guard';
+import { Audit, AuditInterceptor } from '../audit/audit.interceptor';
 import { Types } from 'mongoose';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
@@ -23,13 +27,15 @@ import { createReadStream } from 'fs';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
 @Controller('upload')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UploadsController {
   private readonly logger = new Logger(UploadsController.name);
 
   constructor(private uploadsService: UploadsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file'), AuditInterceptor)
+  @Audit({ action: 'UPLOAD_DOCUMENT', module: 'DOCUMENTS' })
   async uploadAndDetect(
     @UploadedFile() file: Express.Multer.File,
     @Body('expectedDocumentType') expectedDocumentType?: string,
@@ -58,9 +64,10 @@ export class UploadsController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post(':documentId')
-  @UseInterceptors(FileInterceptor('file'))
+  @RequirePermissions('upload:documents')
+  @UseInterceptors(FileInterceptor('file'), AuditInterceptor)
+  @Audit({ action: 'UPLOAD_DOCUMENT', module: 'DOCUMENTS' })
   async uploadFile(
     @Param('documentId') documentId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -144,27 +151,29 @@ export class UploadsController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('me')
+  @RequirePermissions('upload:documents')
   async getUserUploads(@Req() req: any) {
     return this.uploadsService.findByUser(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('wallet')
+  @RequirePermissions('upload:documents')
   async getWalletDocuments(@Req() req: any) {
     return this.uploadsService.findWalletDocuments(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('files/:uploadId')
+  @RequirePermissions('upload:documents')
+  @UseGuards(OwnershipGuard)
+  @CheckOwnership({ modelName: 'UploadedDocument', paramName: 'uploadId' })
   async downloadFile(
     @Param('uploadId') uploadId: string,
     @Req() req: any,
     @Res() res: Response,
   ) {
     const upload = await this.uploadsService.findOne(uploadId);
-    if (!upload || upload.user.toString() !== req.user.id) {
+    if (!upload) {
       throw new NotFoundException('File not found.');
     }
 
@@ -175,8 +184,10 @@ export class UploadsController {
     return stream.pipe(res);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('status/:uploadId')
+  @RequirePermissions('upload:documents')
+  @UseGuards(OwnershipGuard)
+  @CheckOwnership({ modelName: 'UploadedDocument', paramName: 'uploadId' })
   async getStatus(@Param('uploadId') uploadId: string) {
     return this.uploadsService.findOne(uploadId);
   }
